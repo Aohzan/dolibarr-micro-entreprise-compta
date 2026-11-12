@@ -1,0 +1,45 @@
+---
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Never run two releases at once, and never cancel one halfway.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: Semantic release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push the release commit and tag, create the GitHub release
+      issues: write # comment on the issues fixed by the release
+      pull-requests: write # comment on the pull requests in the release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # semantic-release pushes the release commit and tag with this token.
+          persist-credentials: true # zizmor: ignore[artipacked] no artifact is uploaded
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install semantic-release
+        run: npm ci --ignore-scripts
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release

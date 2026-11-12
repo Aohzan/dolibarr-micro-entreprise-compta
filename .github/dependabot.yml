@@ -1,0 +1,46 @@
+---
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  # Dolibarr images tested in CI: the latest major follows new majors,
+  # the previous one is moved by hand when a new major comes out.
+  - package-ecosystem: docker
+    directories:
+      - /dev/docker/dolibarr-latest
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: docker
+    directories:
+      - /dev/docker/dolibarr-previous
+      - /dev/docker/mariadb
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
