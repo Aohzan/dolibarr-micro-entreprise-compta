@@ -1,7 +1,7 @@
 parameters:
 	level: 5
 	phpVersion:
-		min: 80300
+		min: 70200
 		max: 80599
 	tmpDir: .cache/phpstan
 	paths:
@@ -10,16 +10,15 @@ parameters:
 		analyse:
 			- .cache/*
 		analyseAndScan:
+			# PHPUnit needs PHP 8.2+, while the module targets PHP 7.2 like Dolibarr.
+			- tests/*
 			- vendor/*
 			- node_modules/*
-			# Legacy code, replaced by the UX rewrite.
-			- class/*.class.php
-			- admin/index.php
-			- admin/edit.php
-			- report/*
-			- core/lib/functions.lib.php
 	bootstrapFiles:
 		- dev/phpstan/bootstrap.php
+	scanFiles:
+		# llxHeader() and llxFooter().
+		- .cache/dolibarr/htdocs/main.inc.php
 	scanDirectories:
 		- .cache/dolibarr/htdocs/core
 		- .cache/dolibarr/htdocs/user/class
@@ -31,10 +30,5 @@ parameters:
 		- identifier: variable.undefined
 		  message: '#^Variable \$(db|conf|langs|user|hookmanager|mysoc) might not be defined\.$#'
 		# The seed runs inside the dolibarr/dolibarr container.
-		- identifier: require.fileNotFound
+		- identifiers: [require.fileNotFound, requireOnce.fileNotFound]
 		  path: dev/docker-init.d/*
-		# DolibarrModules::$menu documents keys (fk_parent, positionfull) that
-		# Dolibarr's own module descriptors omit too.
-		- identifier: assign.propertyType
-		  message: '#^Property DolibarrModules::\$menu #'
-		  path: core/modules/modAutoMicroEnt.class.php

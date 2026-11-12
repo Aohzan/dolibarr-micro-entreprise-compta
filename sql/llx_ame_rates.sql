@@ -36,3 +36,8 @@ ALTER TABLE llx_ame_rates ADD COLUMN level tinyint UNSIGNED NOT NULL DEFAULT 1 A
 
 -- XXX : rounded values at taxes level ?
 --ALTER TABLE llx_ame_rates ADD COLUMN round tinyint UNSIGNED NOT NULL DEFAULT 1 AFTER second;
+
+-- 8.0.0: rate as a decimal number (NULL: not applicable that year), entity and order.
+ALTER TABLE llx_ame_rates ADD COLUMN rate double(24,8) NULL AFTER second;
+ALTER TABLE llx_ame_rates ADD COLUMN entity integer DEFAULT 1 NOT NULL AFTER rowid;
+ALTER TABLE llx_ame_rates ADD COLUMN position integer DEFAULT 0 NOT NULL AFTER rate;

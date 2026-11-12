@@ -12,11 +12,6 @@
 	<exclude-pattern>/vendor/</exclude-pattern>
 	<exclude-pattern>/node_modules/</exclude-pattern>
 	<exclude-pattern>/\.cache/</exclude-pattern>
-	<!-- Legacy code, replaced by the UX rewrite. -->
-	<exclude-pattern>/class/[a-z]+\.class\.php$</exclude-pattern>
-	<exclude-pattern>/admin/(index|edit)\.php$</exclude-pattern>
-	<exclude-pattern>/report/</exclude-pattern>
-	<exclude-pattern>/core/lib/functions\.lib\.php$</exclude-pattern>
 
 	<rule ref="Generic.CodeAnalysis.EmptyStatement">
 		<exclude name="Generic.CodeAnalysis.EmptyStatement.DetectedCatch"/>

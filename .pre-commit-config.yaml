@@ -22,7 +22,7 @@ repos:
       - id: codespell
         # French text is not English; ChangeLog.md is written by semantic-release.
         exclude: ^(langs/fr_FR/|docs/(ChangeLog|INSTALL\.FR)$|ChangeLog\.md$|package-lock\.json$|composer\.lock$)
-        args: [--ignore-words-list=crate]
+        args: ["--ignore-words-list", "crate,afterall", "--ignore-regex", "\\bafterAll\\b"]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0

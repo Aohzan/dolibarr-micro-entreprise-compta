@@ -216,5 +216,15 @@ foreach ($rates as $year => $lines) {
 	}
 }
 
+dolibarr_set_const($db, 'AUTOMICROENT_PROFILE', 'bnc', 'chaine', 0, '', $conf->entity);
+
 $db->commit();
+
+// Run the module activation again, as after an upgrade: it migrates the legacy rates.
+require_once '/var/www/html/custom/automicroent/core/modules/modAutoMicroEnt.class.php';
+$module = new modAutoMicroEnt($db);
+if ($module->remove() <= 0 || $module->init() <= 0) {
+	seedFail('module activation', $module);
+}
+
 print 'Seeded '.$invoiceCount.' invoices.'.PHP_EOL;

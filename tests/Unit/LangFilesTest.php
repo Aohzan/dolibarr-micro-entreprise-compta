@@ -56,7 +56,9 @@ final class LangFilesTest extends TestCase
 	public function testKeysAreUnique(string $lang): void
 	{
 		$keys = self::keys($lang);
-		$this->assertSame(array(), array_keys(array_filter(array_count_values($keys), fn ($n) => $n > 1)));
+		$this->assertSame(array(), array_keys(array_filter(array_count_values($keys), function ($n) {
+			return $n > 1;
+		})));
 	}
 
 	/**
