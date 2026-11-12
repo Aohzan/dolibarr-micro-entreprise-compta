@@ -22,7 +22,6 @@ export default defineConfig({
   projects: [
     {
       name: 'e2e',
-      testIgnore: /screenshots\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

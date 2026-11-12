@@ -55,7 +55,8 @@ jobs:
         run: SKIP=no-commit-to-branch prek run --all-files --show-diff-on-failure
 
       - name: Check commit messages
-        if: github.event_name == 'pull_request'
+        # Dependabot subjects name long paths and packages; their prefix is set in dependabot.yml.
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

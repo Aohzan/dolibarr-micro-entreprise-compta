@@ -38,8 +38,8 @@ jobs:
     permissions:
       actions: read # watch the CI run of the PR head
     steps:
-      # The master ruleset has no required status checks, so the PR is merged
-      # only once its CI run has passed.
+      # master has no required status checks, so the PR is merged only once
+      # its CI run has passed.
       - name: Wait for CI to pass
         env:
           GH_TOKEN: ${{ github.token }}
@@ -59,6 +59,8 @@ jobs:
           fi
           gh run watch "$run_id" --exit-status --interval 30
 
+      # BOT_APP_ID and BOT_PRIVATE_KEY must be Dependabot secrets: workflows
+      # triggered by Dependabot cannot read Actions secrets.
       # The bot app is dedicated to these merges, so its installation permissions are
       # the scope. Merging an Actions update also needs the workflows permission.
       - name: Generate token

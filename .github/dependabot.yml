@@ -8,6 +8,8 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: build
 
   - package-ecosystem: composer
     directory: /
@@ -15,6 +17,8 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: build
 
   - package-ecosystem: npm
     directory: /
@@ -22,6 +26,13 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: build
+    ignore:
+      # Major 10 needs conventional-changelog-writer 9, which
+      # @semantic-release/release-notes-generator does not use yet.
+      - dependency-name: conventional-changelog-conventionalcommits
+        update-types: [version-update:semver-major]
 
   # Dolibarr images tested in CI: the latest major follows new majors,
   # the previous one is moved by hand when a new major comes out.
@@ -32,6 +43,8 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: build
 
   - package-ecosystem: docker
     directories:
@@ -41,6 +54,8 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    commit-message:
+      prefix: build
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]

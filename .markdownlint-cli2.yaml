@@ -3,3 +3,5 @@ ignores:
   - node_modules/**
   - vendor/**
   - .cache/**
+  # Written by semantic-release.
+  - ChangeLog.md

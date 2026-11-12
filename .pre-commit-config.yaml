@@ -20,8 +20,8 @@ repos:
     rev: v2.4.3
     hooks:
       - id: codespell
-        # French translations and fictitious French names are not English.
-        exclude: ^(langs/fr_FR/|docs/(ChangeLog|INSTALL\.FR)$|package-lock\.json$|composer\.lock$)
+        # French text is not English; ChangeLog.md is written by semantic-release.
+        exclude: ^(langs/fr_FR/|docs/(ChangeLog|INSTALL\.FR)$|ChangeLog\.md$|package-lock\.json$|composer\.lock$)
         args: [--ignore-words-list=crate]
 
   - repo: https://github.com/adrienverge/yamllint

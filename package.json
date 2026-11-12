@@ -4,15 +4,14 @@
   "description": "Development tooling of the automicroent Dolibarr module (release, end-to-end tests).",
   "license": "GPL-3.0-only",
   "scripts": {
-    "e2e": "playwright test",
-    "screenshots": "playwright test --project=screenshots"
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^11.0.1",
-    "conventional-changelog-conventionalcommits": "^10.4.1",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
     "semantic-release": "^25.0.9"
   }
 }
