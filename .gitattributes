@@ -7,6 +7,7 @@
 /.gitignore export-ignore
 /.editorconfig export-ignore
 /.markdownlint.yaml export-ignore
+/.markdownlint-cli2.yaml export-ignore
 /.npmrc export-ignore
 /.pre-commit-config.yaml export-ignore
 /.releaserc.json export-ignore
@@ -20,6 +21,7 @@
 /dev export-ignore
 /docker-compose.yml export-ignore
 /mise.toml export-ignore
+/mise.local.toml.example export-ignore
 /package.json export-ignore
 /package-lock.json export-ignore
 /phpcs.xml export-ignore
