@@ -71,7 +71,7 @@ class taxEdit extends AMEPage {
 		$this->taxes = new taxesManager();
 		$o = &$this->taxes;
 
-		$form = GETPOST('form_name', '', 2);
+		$form = GETPOST('form_name', 'aZ09', 2);
 
 		$this->rateID = GETPOST('id', 'int', 3);
 		if( $this->rateID == '' )
@@ -92,8 +92,8 @@ class taxEdit extends AMEPage {
 		if( $form == $this->form_name ) {
 			// get new values from $_POST
 			$this->new_t = GETPOST('type', 'int', 2);
-			$this->new_n = GETPOST('tax_name', '', 2);
-			$this->new_c = GETPOST('tax_comment', '', 2);
+			$this->new_n = GETPOST('tax_name', 'alphanohtml', 2);
+			$this->new_c = GETPOST('tax_comment', 'alphanohtml', 2);
 			$this->new_a = GETPOST('percentage_accuracy', 'int', 2);
 			$this->new_f = GETPOST('int_value', 'int', 2);
 			$this->new_s = GETPOST('part_value', 'int', 2);

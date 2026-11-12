@@ -49,13 +49,13 @@ class adminConfig extends AMEPage {
 		$this->taxes = new taxesManager();
 		$o = &$this->taxes;
 
-		$form = GETPOST('form_name', '', 2);
+		$form = GETPOST('form_name', 'aZ09', 2);
 
 		/* --- --- --- --- --- --- --- --- --- --- --- --- --- */
 		// forms submit handling
 
 		if( $form == 'year_select_form' ) {
-			$this->year = GETPOST('year', '', 2);
+			$this->year = GETPOST('year', 'alphanohtml', 2);
 			$this->level = GETPOST('level', 'int', 1);
 
 			$urlopts = '?';
@@ -86,7 +86,7 @@ class adminConfig extends AMEPage {
 		/* --- --- --- --- --- --- --- --- --- --- --- --- --- */
 		// get and check year and level values from user
 
-		$this->year = GETPOST('year', '');
+		$this->year = GETPOST('year', 'alphanohtml');
 		$y = &$this->year;
 
 		// tax delete form was submitted ...
@@ -162,9 +162,9 @@ class adminConfig extends AMEPage {
 			$this->printNewYearForm();
 		else {
 			// only get
-			if( GETPOST('insert', '', 1)  ===  'success' )
+			if( GETPOST('insert', 'aZ09', 1)  ===  'success' )
 				setEventMessage( $langs->trans('AME_TaxInsertSuccess') );
-			if( GETPOST('update', '', 1)  ===  'success' )
+			if( GETPOST('update', 'aZ09', 1)  ===  'success' )
 				setEventMessage( $langs->trans('AME_TaxUpdateSuccess') );
 			$this->printTaxesTable();
 		}
