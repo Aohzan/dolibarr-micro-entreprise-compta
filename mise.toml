@@ -5,7 +5,7 @@ minimum_release_age = "7d"
 [tools]
 prek = "latest"
 node = "lts"
-php = "8.3"
+php = "8.4"
 docker-compose = "latest"
 zizmor = "latest"
 committed = "latest"
