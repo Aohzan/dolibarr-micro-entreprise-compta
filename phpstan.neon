@@ -1,0 +1,40 @@
+parameters:
+	level: 5
+	phpVersion:
+		min: 80200
+		max: 80499
+	tmpDir: .cache/phpstan
+	paths:
+		- .
+	excludePaths:
+		analyse:
+			- .cache/*
+		analyseAndScan:
+			- vendor/*
+			- node_modules/*
+			# Legacy code, replaced by the UX rewrite.
+			- class/*.class.php
+			- admin/index.php
+			- admin/edit.php
+			- report/*
+			- core/lib/functions.lib.php
+	bootstrapFiles:
+		- dev/phpstan/bootstrap.php
+	scanDirectories:
+		- .cache/dolibarr/htdocs/core
+		- .cache/dolibarr/htdocs/user/class
+		- .cache/dolibarr/htdocs/societe/class
+		- .cache/dolibarr/htdocs/product/class
+		- .cache/dolibarr/htdocs/compta
+	ignoreErrors:
+		# Globals set by Dolibarr's main.inc.php / master.inc.php.
+		- identifier: variable.undefined
+		  message: '#^Variable \$(db|conf|langs|user|hookmanager|mysoc) might not be defined\.$#'
+		# The seed runs inside the dolibarr/dolibarr container.
+		- identifier: require.fileNotFound
+		  path: dev/docker-init.d/*
+		# DolibarrModules::$menu documents keys (fk_parent, positionfull) that
+		# Dolibarr's own module descriptors omit too.
+		- identifier: assign.propertyType
+		  message: '#^Property DolibarrModules::\$menu #'
+		  path: core/modules/modAutoMicroEnt.class.php

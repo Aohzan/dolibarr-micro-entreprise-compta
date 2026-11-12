@@ -1,0 +1,5 @@
+---
+# Long lines are fine in prose.
+MD013: false
+# GitHub templates start with a section heading.
+MD041: false

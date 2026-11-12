@@ -1,0 +1,7 @@
+# Conventional Commits, required by semantic-release.
+style = "conventional"
+subject_length = 72
+line_length = 0
+merge_commit = false
+subject_capitalized = false
+allowed_types = ["fix", "feat", "chore", "docs", "style", "refactor", "perf", "test", "build", "ci", "revert"]

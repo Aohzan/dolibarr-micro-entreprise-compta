@@ -1,0 +1,71 @@
+---
+# Run with prek (mise run lint), a drop-in replacement for pre-commit.
+default_stages: [pre-commit]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: no-commit-to-branch
+        args: [--branch=master]
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.3
+    hooks:
+      - id: codespell
+        # French translations and fictitious French names are not English.
+        exclude: ^(langs/fr_FR/|docs/(ChangeLog|INSTALL\.FR)$|package-lock\.json$|composer\.lock$)
+        args: [--ignore-words-list=crate]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.24.0
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.32.0
+    hooks:
+      - id: zizmor # GitHub Actions security linter
+
+  - repo: https://github.com/crate-ci/committed
+    rev: v1.1.12
+    hooks:
+      - id: committed
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: php-lint
+        name: php -l
+        entry: scripts/php-lint.sh
+        language: system
+        types: [php]
+      - id: phpcs
+        name: phpcs
+        entry: vendor/bin/phpcs -q
+        language: system
+        types: [php]
+      - id: phpstan
+        name: phpstan
+        entry: bash -c 'scripts/fetch-dolibarr.sh && vendor/bin/phpstan analyse --memory-limit=2G --no-progress'
+        language: system
+        types: [php]
+        pass_filenames: false
+      - id: phpunit
+        name: phpunit
+        entry: vendor/bin/phpunit
+        language: system
+        types: [php]
+        pass_filenames: false
