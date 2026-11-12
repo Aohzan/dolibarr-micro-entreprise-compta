@@ -102,7 +102,10 @@ function amePayments(): AmePaymentRepository
  */
 function ameTurnoverCalculator(): AmeTurnoverCalculator
 {
-	return new AmeTurnoverCalculator();
+	// Dolibarr types every deposit line as goods: use the activity of the profile.
+	$profile = ameProfile();
+	$deposit = ($profile === '') ? null : (($profile === AmeTaxCatalog::PROFILE_SALES) ? AmeTurnoverCalculator::SALE : AmeTurnoverCalculator::SERVICE);
+	return new AmeTurnoverCalculator(null, $deposit);
 }
 
 /**
@@ -113,6 +116,48 @@ function ameTurnoverCalculator(): AmeTurnoverCalculator
 function ameToday(): string
 {
 	return dol_print_date(dol_now(), '%Y-%m-%d', 'tzuserrel');
+}
+
+/**
+ * Date of a Y-m-d string, for display.
+ *
+ * @param string $date Y-m-d
+ * @return string
+ */
+function ameDate(string $date): string
+{
+	// Parsed and printed in the server time zone, so the day never shifts.
+	return dol_print_date(dol_stringtotime($date, 0), 'day', 'tzserver');
+}
+
+/**
+ * Write a CSV line (';' separated), PHP 7.2 to 8.5.
+ *
+ * @param resource           $out    Output stream
+ * @param array<int, scalar> $fields Values
+ * @return void
+ */
+function ameCsvLine($out, array $fields): void
+{
+	// An empty escape character, the RFC 4180 behaviour, needs PHP 7.4.
+	if (PHP_VERSION_ID >= 70400) {
+		fputcsv($out, $fields, ';', '"', '');
+	} else {
+		fputcsv($out, $fields, ';', '"');
+	}
+}
+
+/**
+ * Year to show by default: the previous one while its last period is still to declare (January).
+ *
+ * @param string $today Day as Y-m-d
+ * @return int
+ */
+function ameDefaultYear(string $today): int
+{
+	$year = (int) substr($today, 0, 4);
+	$previous = AmeDeclarationPeriods::forYear($year - 1, amePeriodicity());
+	return (AmeDeclarationPeriods::status(end($previous), $today) === AmeDeclarationPeriods::STATUS_DUE) ? $year - 1 : $year;
 }
 
 /**

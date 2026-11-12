@@ -134,6 +134,10 @@ class AmeRateRepository
 		$resql = $this->query($sql);
 		while ($obj = $this->db->fetch_object($resql)) {
 			$key = self::rowKey((int) $obj->level, (int) $obj->type, $obj->name);
+			// The legacy module allowed duplicates: show each as its own row so that it can be fixed.
+			while (isset($rows[$key]['cells'][(int) $obj->year])) {
+				$key .= '-'.(int) $obj->rowid;
+			}
 			if (!isset($rows[$key])) {
 				$rows[$key] = array(
 					'key' => $key,
@@ -159,13 +163,15 @@ class AmeRateRepository
 	 * Save the values of the configuration table.
 	 *
 	 * @param array<mixed> $values Row key => year => rate ('' when not applicable), as posted
-	 * @return int Number of changed cells
+	 * @return array{changed: int, invalid: list<string>} Number of changed cells, and the cells left
+	 *                                                    unchanged because their value is not a rate
 	 */
-	public function saveRates(array $values): int
+	public function saveRates(array $values): array
 	{
 		$rows = $this->matrix();
 		$years = $this->years();
 		$changed = 0;
+		$invalid = array();
 
 		$this->db->begin();
 		foreach ($values as $key => $cells) {
@@ -178,7 +184,12 @@ class AmeRateRepository
 				if (!in_array($year, $years, true)) {
 					continue;
 				}
-				$rate = is_string($value) ? self::parseRate($value) : null;
+				$value = is_string($value) ? trim($value) : '';
+				$rate = self::parseRate($value);
+				if ($value !== '' && $rate === null) {
+					$invalid[] = $row['name'].' '.$year;
+					continue;
+				}
 				$current = $row['cells'][$year] ?? null;
 				if ($current !== null) {
 					if ($current['rate'] === $rate) {
@@ -193,7 +204,7 @@ class AmeRateRepository
 			}
 		}
 		$this->db->commit();
-		return $changed;
+		return array('changed' => $changed, 'invalid' => $invalid);
 	}
 
 	/**
@@ -208,6 +219,9 @@ class AmeRateRepository
 	 */
 	public function addYear(int $year, string $source, string $profile, bool $incomeTax, $langs): int
 	{
+		if (in_array($year, $this->years(), true)) {
+			throw new InvalidArgumentException('AME_ErrorYearExists');
+		}
 		$lines = array();
 		if ($source === self::SOURCE_CATALOG) {
 			foreach (AmeTaxCatalog::lines($profile, $year, $incomeTax) as $line) {
@@ -230,7 +244,6 @@ class AmeRateRepository
 		}
 
 		$this->db->begin();
-		$this->deleteYearRecords($year);
 		$this->insert($year, 0, 0, self::LEGACY_UNNAMED, '', null);
 		foreach ($lines as $line) {
 			$this->insert($year, $line['level'], $line['type'], $line['name'], $line['comment'], $line['rate']);

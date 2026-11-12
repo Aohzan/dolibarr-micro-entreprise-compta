@@ -45,8 +45,8 @@ final class TurnoverCalculatorTest extends TestCase
 	/**
 	 * Invoice.
 	 *
-	 * @param list<array{product_type: int, fk_product: int, total_ht: float, total_ttc: float}> $lines Lines
-	 * @return array{ref: string, total_ttc: float, lines: list<array{product_type: int, fk_product: int, total_ht: float, total_ttc: float}>}
+	 * @param list<array<string, mixed>> $lines Lines
+	 * @return array{ref: string, total_ttc: float, lines: list<array<string, mixed>>}
 	 */
 	private static function invoice(array $lines): array
 	{
@@ -153,6 +153,64 @@ final class TurnoverCalculatorTest extends TestCase
 		$receipts = (new AmeTurnoverCalculator($resolver))->receipts($invoices, array(self::pay(1, '2026-01-10', 300)));
 
 		$this->assertSame(array('service_bnc' => 300.0), $receipts[0]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testRefundUnwindsServicesFirst(): void
+	{
+		$invoices = array(1 => self::invoice(array(self::line(0, 500), self::line(1, 500))));
+		$receipts = (new AmeTurnoverCalculator())->receipts($invoices, array(
+			self::pay(1, '2026-01-10', 700),
+			self::pay(2, '2026-02-10', -300),
+		));
+
+		$this->assertSame(array('sale' => 500.0, 'service' => 200.0), $receipts[0]['activities']);
+		$this->assertSame(array('sale' => -100.0, 'service' => -200.0), $receipts[1]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testRefundBeforeAnyPaymentIsSpreadAndDoesNotEatTheNextPayment(): void
+	{
+		$invoices = array(1 => self::invoice(array(self::line(0, 100), self::line(1, 300))));
+		$receipts = (new AmeTurnoverCalculator())->receipts($invoices, array(
+			self::pay(1, '2026-01-10', -40),
+			self::pay(2, '2026-02-10', 440),
+		));
+
+		$this->assertSame(array('sale' => -10.0, 'service' => -30.0), $receipts[0]['activities']);
+		$this->assertSame(array('sale' => 110.0, 'service' => 330.0), $receipts[1]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testDepositAndItsDeductionKeepTheRealActivity(): void
+	{
+		$calculator = new AmeTurnoverCalculator(null, AmeTurnoverCalculator::SERVICE);
+		$deposit = array('ref' => 'AC1', 'total_ttc' => 300.0, 'type' => AmeTurnoverCalculator::INVOICE_DEPOSIT, 'lines' => array(self::line(0, 300)));
+		$final = self::invoice(array(self::line(1, 1000), self::line(0, -300) + array('discount' => true)));
+		$receipts = $calculator->receipts(array(1 => $deposit, 2 => $final), array(
+			self::pay(1, '2026-02-10', 300, 1),
+			self::pay(2, '2026-05-10', 700, 2),
+		));
+
+		$this->assertSame(array('service' => 300.0), $receipts[0]['activities']);
+		$this->assertSame(array('service' => 700.0), $receipts[1]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testDiscountLineLowersEveryActivityInProportion(): void
+	{
+		$invoices = array(1 => self::invoice(array(self::line(0, 200), self::line(1, 800), self::line(1, -100) + array('discount' => true))));
+		$receipts = (new AmeTurnoverCalculator())->receipts($invoices, array(self::pay(1, '2026-01-10', 900)));
+
+		$this->assertSame(array('sale' => 180.0, 'service' => 720.0), $receipts[0]['activities']);
 	}
 
 	/**

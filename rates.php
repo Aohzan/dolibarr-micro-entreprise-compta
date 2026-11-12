@@ -63,15 +63,23 @@ $self = $_SERVER['PHP_SELF'];
 try {
 	if ($action === 'save') {
 		$values = GETPOST('rate', 'array');
-		$changed = $repository->saveRates($values);
-		setEventMessages($langs->trans('AME_RatesSaved', $changed), null);
+		$result = $repository->saveRates($values);
+		setEventMessages($langs->trans('AME_RatesSaved', $result['changed']), null);
+		if ($result['invalid']) {
+			setEventMessages($langs->trans('AME_RatesInvalid', implode(', ', $result['invalid'])), null, 'errors');
+		}
 		header('Location: '.$self);
 		exit;
 	}
 
-	if ($action === 'init' || $action === 'addyear') {
+	// Action names start with "add": Dolibarr then requires a CSRF token, even in GET.
+	if ($action === 'addfirstyear' || $action === 'addyear') {
 		$source = GETPOST('source', 'aZ09');
-		if ($action === 'init') {
+		if ($action === 'addfirstyear') {
+			// Only on first use: it would replace the rates of the current year.
+			if ($repository->years()) {
+				throw new InvalidArgumentException('AME_ErrorYearExists');
+			}
 			$profile = GETPOST('profile', 'aZ09');
 			if (!in_array($profile, AmeTaxCatalog::profiles(), true)) {
 				throw new InvalidArgumentException('AME_ErrorChooseProfile');
@@ -83,9 +91,6 @@ try {
 		}
 		if ($year < 2000 || $year > 2100) {
 			throw new InvalidArgumentException('AME_ErrorYear');
-		}
-		if ($action === 'addyear' && in_array($year, $repository->years(), true)) {
-			throw new InvalidArgumentException('AME_ErrorYearExists');
 		}
 		if (!in_array($source, array(AmeRateRepository::SOURCE_PREVIOUS, AmeRateRepository::SOURCE_CATALOG, AmeRateRepository::SOURCE_EMPTY), true)) {
 			$source = AmeRateRepository::SOURCE_EMPTY;
@@ -179,7 +184,7 @@ if (!$years) {
 	print '<div class="info">'.$langs->trans('AME_NoRateYet').'</div>';
 	print '<form method="POST" action="'.$self.'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
-	print '<input type="hidden" name="action" value="init">';
+	print '<input type="hidden" name="action" value="addfirstyear">';
 	print '<table class="noborder centpercent"><tr class="liste_titre"><th colspan="2">'.$langs->trans('AME_StartFromCatalog').'</th></tr>';
 	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('AME_Profile').'</td><td>';
 	print $form->selectarray('profile', ameProfileOptions(), ameProfile(), 1);
@@ -295,7 +300,7 @@ foreach ($rows as $row) {
 		$value = ($rate === null) ? '' : rtrim(rtrim(number_format($rate, 4, '.', ''), '0'), '.');
 		$label = dol_escape_htmltag($row['name'].' '.$y);
 		print '<td class="center nowraponall">';
-		print '<input type="number" step="0.001" min="0" max="100" class="flat width75 right" name="rate['.$row['key'].']['.$y.']" value="'.$value.'" aria-label="'.$label.'" placeholder="–"> %';
+		print '<input type="number" step="any" min="0" max="100" class="flat width75 right" name="rate['.$row['key'].']['.$y.']" value="'.$value.'" aria-label="'.$label.'" placeholder="–"> %';
 		print '</td>';
 	}
 	print '<td class="right nowraponall">';

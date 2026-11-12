@@ -126,3 +126,4 @@ AME_ErrorYear=Année invalide.
 AME_ErrorYearExists=Cette année existe déjà.
 AME_ErrorRowFields=Le nom, la catégorie et l'assiette sont obligatoires.
 AME_ErrorRowExists=Une taxe avec ce nom, cette catégorie et cette assiette existe déjà.
+AME_RatesInvalid=Valeurs ignorées, ce ne sont pas des taux entre 0 et 100 : %s

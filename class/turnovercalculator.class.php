@@ -31,8 +31,8 @@
  *
  * Pure PHP: the data comes from AmePaymentRepository, so it is unit tested.
  *
- * @phpstan-type InvoiceLine array{product_type: int, fk_product: int, total_ht: float, total_ttc: float}
- * @phpstan-type Invoice array{ref: string, total_ttc: float, lines: list<InvoiceLine>}
+ * @phpstan-type InvoiceLine array{product_type: int, fk_product: int, total_ht: float, total_ttc: float, discount?: bool}
+ * @phpstan-type Invoice array{ref: string, total_ttc: float, type?: int, lines: list<InvoiceLine>}
  * @phpstan-type Allocation array{payment_id: int, date: string, invoice_id: int, amount: float}
  * @phpstan-type Receipt array{payment_id: int, date: string, invoice_id: int, invoice_ref: string, amount: float, partial: bool, activities: array<string, float>}
  */
@@ -44,17 +44,27 @@ class AmeTurnoverCalculator
 	/** Services (Dolibarr product type 1). */
 	const SERVICE = 'service';
 
+	/** Dolibarr type of a deposit invoice. */
+	const INVOICE_DEPOSIT = 3;
+
 	/**
 	 * @var callable(array{product_type: int, fk_product: int}): ?string Activity of an invoice line, null to ignore it
 	 */
 	private $activityOf;
 
 	/**
-	 * @param callable(array{product_type: int, fk_product: int}): ?string|null $activityOf Activity of an invoice line, null to ignore the line. Default: by product type.
+	 * @var string|null Activity of deposit invoices, whose lines Dolibarr always types as goods
 	 */
-	public function __construct(?callable $activityOf = null)
+	private $depositActivity;
+
+	/**
+	 * @param callable(array{product_type: int, fk_product: int}): ?string|null $activityOf      Activity of an invoice line, null to ignore the line. Default: by product type.
+	 * @param string|null                                                       $depositActivity Activity of deposit invoices, null to read their lines like the others
+	 */
+	public function __construct(?callable $activityOf = null, ?string $depositActivity = null)
 	{
 		$this->activityOf = $activityOf ?? array(self::class, 'activityByProductType');
+		$this->depositActivity = $depositActivity;
 	}
 
 	/**
@@ -161,20 +171,7 @@ class AmeTurnoverCalculator
 	 */
 	private function invoiceReceipts(array $invoice, array $allocations): array
 	{
-		// Group lines per activity, goods first: they are settled first.
-		$groups = array();
-		foreach ($invoice['lines'] as $line) {
-			$activity = call_user_func($this->activityOf, $line);
-			if ($activity === null) {
-				continue;
-			}
-			$groups[$activity]['ht'] = ($groups[$activity]['ht'] ?? 0) + (float) $line['total_ht'];
-			$groups[$activity]['ttc'] = ($groups[$activity]['ttc'] ?? 0) + (float) $line['total_ttc'];
-		}
-		uksort($groups, function ($a, $b) {
-			return array($a !== self::SALE, $a) <=> array($b !== self::SALE, $b);
-		});
-
+		$groups = $this->activityGroups($invoice);
 		$total = 0.0;
 		foreach ($groups as $group) {
 			$total += $group['ttc'];
@@ -190,7 +187,7 @@ class AmeTurnoverCalculator
 		$proportional = false;
 		foreach ($groups as $group) {
 			if ($group['ttc'] * $sign < 0) {
-				$proportional = true; // a discount line larger than its activity
+				$proportional = true; // a negative line larger than its activity
 			}
 		}
 
@@ -198,9 +195,16 @@ class AmeTurnoverCalculator
 		$single = count($allocations) === 1;
 		foreach ($allocations as $allocation) {
 			$amount = (float) $allocation['amount'] * $sign;
-			$shares = ($proportional || $amount < 0)
-				? $this->proportionalShares($groups, $total, $amount)
-				: $this->settleInOrder($groups, $sign, $paid, $amount);
+			if ($proportional) {
+				$shares = $this->proportionalShares($groups, $total, $amount);
+			} elseif ($amount >= 0) {
+				$shares = $this->settleRange($groups, $sign, $paid, $paid + $amount);
+			} else {
+				// A refund unwinds the last settled amounts: services before goods.
+				$shares = array_map(function ($share) {
+					return -$share;
+				}, $this->settleRange($groups, $sign, $paid + $amount, $paid));
+			}
 			$paid += $amount;
 
 			$activities = array();
@@ -223,20 +227,74 @@ class AmeTurnoverCalculator
 	}
 
 	/**
-	 * Settle the activities in order, from what was already paid.
+	 * Totals of an invoice per activity, goods first: they are settled first.
+	 *
+	 * Discount lines (a deposit or a credit note deducted from the invoice)
+	 * carry no activity of their own: they lower every activity of the
+	 * invoice in proportion. A deposit invoice holds the activity given to
+	 * the constructor, whatever the type of its lines.
+	 *
+	 * @param Invoice $invoice Invoice
+	 * @return array<string, array{ht: float, ttc: float}>
+	 */
+	private function activityGroups(array $invoice): array
+	{
+		$groups = array();
+		$discountHt = 0.0;
+		$discountTtc = 0.0;
+		foreach ($invoice['lines'] as $line) {
+			if (!empty($line['discount'])) {
+				$discountHt += (float) $line['total_ht'];
+				$discountTtc += (float) $line['total_ttc'];
+				continue;
+			}
+			$activity = (($invoice['type'] ?? 0) === self::INVOICE_DEPOSIT && $this->depositActivity !== null && in_array((int) $line['product_type'], array(0, 1), true))
+				? $this->depositActivity
+				: call_user_func($this->activityOf, $line);
+			if ($activity === null) {
+				continue;
+			}
+			$groups[$activity]['ht'] = ($groups[$activity]['ht'] ?? 0) + (float) $line['total_ht'];
+			$groups[$activity]['ttc'] = ($groups[$activity]['ttc'] ?? 0) + (float) $line['total_ttc'];
+		}
+
+		$baseHt = 0.0;
+		$baseTtc = 0.0;
+		foreach ($groups as $group) {
+			$baseHt += $group['ht'];
+			$baseTtc += $group['ttc'];
+		}
+		if (abs($baseTtc) >= 0.005) {
+			foreach ($groups as $activity => $group) {
+				$groups[$activity]['ht'] += (abs($baseHt) >= 0.005) ? $discountHt * $group['ht'] / $baseHt : 0;
+				$groups[$activity]['ttc'] += $discountTtc * $group['ttc'] / $baseTtc;
+			}
+		}
+
+		uksort($groups, function ($a, $b) {
+			return array($a !== self::SALE, $a) <=> array($b !== self::SALE, $b);
+		});
+		return $groups;
+	}
+
+	/**
+	 * Activities settled by the range [from, to] of the amount paid.
+	 *
+	 * The goods fill the first part of the invoice total, then each other
+	 * activity. Above the total (overpayment), the amount counts as
+	 * services; below zero (refund before any payment), it is spread in
+	 * proportion.
 	 *
 	 * @param array<string, array{ht: float, ttc: float}> $groups Activities of the invoice
 	 * @param int                                         $sign   1 for an invoice, -1 for a credit note
-	 * @param float                                       $paid   Magnitude already paid before this payment
-	 * @param float                                       $amount Magnitude of this payment (positive)
+	 * @param float                                       $from   Start of the range (magnitude)
+	 * @param float                                       $to     End of the range (magnitude), >= $from
 	 * @return array<string, float> Activity => magnitude including VAT
 	 */
-	private function settleInOrder(array $groups, int $sign, float $paid, float $amount): array
+	private function settleRange(array $groups, int $sign, float $from, float $to): array
 	{
 		$shares = array();
 		$start = 0.0;
-		$from = $paid;
-		$to = $paid + $amount;
 		foreach ($groups as $activity => $group) {
 			$end = $start + $group['ttc'] * $sign;
 			$share = max(0.0, min($to, $end) - max($from, $start));
@@ -245,11 +303,18 @@ class AmeTurnoverCalculator
 			}
 			$start = $end;
 		}
-		// Paid above the invoice total.
-		$extra = $to - max($from, $start);
-		if ($extra >= 0.005) {
+
+		$above = $to - max($from, $start);
+		if ($above >= 0.005) {
 			$activity = isset($groups[self::SERVICE]) ? self::SERVICE : (string) key(array_slice($groups, -1, 1, true));
-			$shares[$activity] = ($shares[$activity] ?? 0) + $extra;
+			$shares[$activity] = ($shares[$activity] ?? 0) + $above;
+		}
+
+		$below = min($to, 0.0) - $from;
+		if ($below >= 0.005) {
+			foreach ($this->proportionalShares($groups, $start * $sign, $below) as $activity => $share) {
+				$shares[$activity] = ($shares[$activity] ?? 0) + $share;
+			}
 		}
 		return $shares;
 	}
@@ -258,7 +323,7 @@ class AmeTurnoverCalculator
 	 * Spread a payment over the activities in proportion to their amounts.
 	 *
 	 * @param array<string, array{ht: float, ttc: float}> $groups Activities of the invoice
-	 * @param float                                       $total  Invoice total including VAT
+	 * @param float                                       $total  Invoice total including VAT, signed like the lines
 	 * @param float                                       $amount Magnitude of this payment
 	 * @return array<string, float> Activity => magnitude including VAT
 	 */

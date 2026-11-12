@@ -47,7 +47,8 @@ $langs->loadLangs(array('bills', 'automicroent@automicroent'));
 ameRequireRight('use');
 
 $today = ameToday();
-$year = GETPOSTINT('year') ?: (int) substr($today, 0, 4);
+$year = GETPOSTINT('year') ?: ameDefaultYear($today);
+$year = max(2000, min(2100, $year));
 $action = GETPOST('action', 'aZ09');
 $self = $_SERVER['PHP_SELF'];
 
@@ -75,19 +76,19 @@ if ($action === 'csv') {
 	header('Content-Disposition: attachment; filename="'.$filename.'"');
 	$out = fopen('php://output', 'w');
 	fwrite($out, "\xEF\xBB\xBF");
-	fputcsv($out, array(
+	ameCsvLine($out, array(
 		$langs->transnoentitiesnoconv('AME_Period'), $langs->transnoentitiesnoconv('DateStart'), $langs->transnoentitiesnoconv('DateEnd'),
 		$langs->transnoentitiesnoconv('AME_Deadline'), $langs->transnoentitiesnoconv('AME_Activity_sale'), $langs->transnoentitiesnoconv('AME_Services'),
 		$langs->transnoentitiesnoconv('Total'), $langs->transnoentitiesnoconv('AME_EstimatedContributions'), $langs->transnoentitiesnoconv('Status'),
-	), ';', '"', '');
+	));
 	foreach ($periods as $row) {
 		$declared = $row['estimate']['declared'];
-		fputcsv($out, array(
+		ameCsvLine($out, array(
 			amePeriodLabel($row['period'], $year), $row['period']['start'], $row['period']['end'], $row['period']['deadline'],
 			(int) ameSum($declared, AmeContributionCalculator::BASE_SALES), (int) ameSum($declared, AmeContributionCalculator::BASE_SERVICES),
 			(int) ameSum($declared, AmeContributionCalculator::BASE_ALL), $row['estimate']['total'],
 			$langs->transnoentitiesnoconv('AME_Status_'.AmeDeclarationPeriods::status($row['period'], $today)),
-		), ';', '"', '');
+		));
 	}
 	fclose($out);
 	exit;
@@ -146,7 +147,7 @@ foreach ($periods as $row) {
 	$empty = ($status === AmeDeclarationPeriods::STATUS_UPCOMING);
 	print '<tr class="oddeven'.($isSelected ? ' ame-selected' : '').'" data-period="'.$period['index'].'">';
 	print '<td><a href="'.$self.'?year='.$year.'&period='.$period['index'].'#ame-period">'.($isSelected ? img_picto('', 'fa-caret-right', 'class="paddingright"') : '').amePeriodLabel($period, $year).'</a></td>';
-	print '<td class="center">'.dol_print_date(dol_stringtotime($period['deadline']), 'day').'</td>';
+	print '<td class="center">'.ameDate($period['deadline']).'</td>';
 	print '<td class="right amount">'.($empty ? '-' : ameMoney(ameSum($declared, AmeContributionCalculator::BASE_SALES), false)).'</td>';
 	print '<td class="right amount">'.($empty ? '-' : ameMoney(ameSum($declared, AmeContributionCalculator::BASE_SERVICES), false)).'</td>';
 	print '<td class="right amount"><strong>'.($empty ? '-' : ameMoney(ameSum($declared, AmeContributionCalculator::BASE_ALL), false)).'</strong></td>';
@@ -163,7 +164,7 @@ $period = $row['period'];
 $estimate = $row['estimate'];
 print '<div id="ame-period" class="ame-period">';
 print load_fiche_titre($langs->trans('AME_ToDeclare', amePeriodLabel($period, $year)), '', 'fa-paper-plane');
-print '<div class="opacitymedium">'.$langs->trans('AME_ToDeclareHelp', dol_print_date(dol_stringtotime($period['deadline']), 'day')).'</div>';
+print '<div class="opacitymedium">'.$langs->trans('AME_ToDeclareHelp', ameDate($period['deadline'])).'</div>';
 
 print '<div class="fichecenter"><div class="fichehalfleft">';
 print '<table class="noborder centpercent" id="ame-declare">';
@@ -203,7 +204,7 @@ if (!$periodReceipts) {
 foreach ($periodReceipts as $receipt) {
 	$url = DOL_URL_ROOT.'/compta/facture/card.php?facid='.$receipt['invoice_id'];
 	print '<tr class="oddeven">';
-	print '<td>'.dol_print_date(dol_stringtotime($receipt['date']), 'day').'</td>';
+	print '<td>'.ameDate($receipt['date']).'</td>';
 	print '<td><a href="'.$url.'">'.img_picto('', 'bill', 'class="pictofixedwidth"').dol_escape_htmltag($receipt['invoice_ref']).'</a></td>';
 	print '<td class="right amount">'.ameMoney($receipt['amount']).'</td>';
 	print '<td class="right amount">'.ameMoney(ameSum($receipt['activities'], AmeContributionCalculator::BASE_SALES)).'</td>';

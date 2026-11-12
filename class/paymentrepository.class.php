@@ -82,12 +82,12 @@ class AmePaymentRepository
 		foreach (array_chunk($ids, 500) as $chunk) {
 			$in = implode(',', $chunk);
 
-			$resql = $this->query('SELECT rowid, ref, total_ttc FROM '.MAIN_DB_PREFIX.'facture WHERE rowid IN ('.$in.')');
+			$resql = $this->query('SELECT rowid, ref, type, total_ttc FROM '.MAIN_DB_PREFIX.'facture WHERE rowid IN ('.$in.')');
 			while ($obj = $this->db->fetch_object($resql)) {
-				$invoices[(int) $obj->rowid] = array('ref' => (string) $obj->ref, 'total_ttc' => (float) $obj->total_ttc, 'lines' => array());
+				$invoices[(int) $obj->rowid] = array('ref' => (string) $obj->ref, 'type' => (int) $obj->type, 'total_ttc' => (float) $obj->total_ttc, 'lines' => array());
 			}
 
-			$sql = 'SELECT fk_facture, product_type, fk_product, total_ht, total_ttc FROM '.MAIN_DB_PREFIX.'facturedet';
+			$sql = 'SELECT fk_facture, product_type, fk_product, total_ht, total_ttc, info_bits, fk_remise_except FROM '.MAIN_DB_PREFIX.'facturedet';
 			$sql .= ' WHERE fk_facture IN ('.$in.') ORDER BY fk_facture, rang, rowid';
 			$resql = $this->query($sql);
 			while ($obj = $this->db->fetch_object($resql)) {
@@ -96,6 +96,8 @@ class AmePaymentRepository
 					'fk_product' => (int) $obj->fk_product,
 					'total_ht' => (float) $obj->total_ht,
 					'total_ttc' => (float) $obj->total_ttc,
+					// A deposit or a credit note deducted from this invoice.
+					'discount' => ((int) $obj->fk_remise_except > 0 || ((int) $obj->info_bits & 2)),
 				);
 			}
 
