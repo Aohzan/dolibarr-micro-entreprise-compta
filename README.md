@@ -1,11 +1,28 @@
 # AutoMicroEntreprise Module FOR <a href="https://www.dolibarr.org">DOLIBARR ERP CRM</a>
 
-The original module is currently unmaintained.
-I try to maintain it for my personal need...
+Turnover reports for French micro-entreprises, by month, quarter and year, for products and services, with an estimate of the charges due from the taxes and rates set for each year.
 
-Last tested dolibarr version : 11.0.x
+## About this fork
 
-You can open bugs if you want, but they will probably be ignored.
+This repository is a maintained fork of AutoMicroEntreprise, written by
+Fabrice Delliaux and later kept by Sébastien Serre
+([framagit.org/sebastienserre/automicroent](https://framagit.org/sebastienserre/automicroent)),
+both now unmaintained. Its full history is kept here. Changes are listed in
+[ChangeLog.md](ChangeLog.md).
+
+Tested with Dolibarr 24.0.1 and PHP 8.4.
+
+Only the repository has a new name: the module itself is still
+`automicroent` (directory, rights, `llx_ame_rates` table, translations), so
+an existing installation upgrades in place and keeps its rates. Install it in
+a directory named `automicroent`:
+
+```sh
+git clone https://github.com/Aohzan/dolibarr-micro-entreprise-compta.git htdocs/custom/automicroent
+```
+
+Bugs and pull requests are welcome in the
+[issues](https://github.com/Aohzan/dolibarr-micro-entreprise-compta/issues).
 
 ## Features
 

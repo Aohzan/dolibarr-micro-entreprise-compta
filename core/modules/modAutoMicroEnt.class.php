@@ -1,6 +1,7 @@
 <?php
 /* Copyright (C) 2004-2018 Laurent Destailleur  <eldy@users.sourceforge.net>
  * Copyright (C) 2013-2018 Fabrice Delliaux	<netbox253@gmail.com>
+ * Copyright (C) 2026 Aohzan (fork: https://github.com/Aohzan/dolibarr-micro-entreprise-compta)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,11 +69,11 @@ class modAutoMicroEnt extends DolibarrModules
 		// Used only if file README.md and README-LL.md not found.
 		$this->descriptionlong = "Description of module AutoMicroEnt (Long)";
 
-		$this->editor_name = 'depordi.fr';
-		$this->editor_url = 'https://www.depordi.fr';
+		$this->editor_name = 'Aohzan';
+		$this->editor_url = 'https://github.com/Aohzan/dolibarr-micro-entreprise-compta';
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated' or a version string like 'x.y.z'
-		$this->version = '7.0.1';
+		$this->version = '7.1.0';
 		// Key used in llx_const table to save module status enabled/disabled (where MYMODULE is value of property name of module in uppercase)
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		// Name of image file used for this module.

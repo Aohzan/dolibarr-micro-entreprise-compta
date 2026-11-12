@@ -1,5 +1,11 @@
 ## ChangeLog of AutoMicroEntreprise Module
 
+### version 7.1.0 - 2026-11-12
+	* Fork maintained at https://github.com/Aohzan/dolibarr-micro-entreprise-compta
+	* Dolibarr 24 compatibility: GETPOST() with an empty check type now
+	  always returns an empty string, which broke the year selection of
+	  the setup page and the rate edit form
+
 ### version 7.0.1 - 2018-09-03
 	* Maintenance update
 	* Bring back module menu pages from «billing» to «accountancy»

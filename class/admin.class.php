@@ -2,6 +2,7 @@
 /*
  *  This file is part of AutoMicroEntreprise Module, a module for Dolibarr.
  *  Copyright (C) 2013-2018 Fabrice Delliaux <netbox253@gmail.com>
+ *  Copyright (C) 2026 Aohzan (fork: https://github.com/Aohzan/dolibarr-micro-entreprise-compta)
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
