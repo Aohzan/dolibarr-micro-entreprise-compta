@@ -32,8 +32,6 @@ AME_TableColonRound=Rounded result
 AME_TableColonModification=Modify
 AME_Category=Category
 
-# XXX : rounded values at taxes level ?
-# AME_TaxRoundHelp=Après multiplication du chiffre d'affaire concerné par le pourcentage de la taxe, le nombre obtenu sera (ou non) arrondi de la manière choisie. Les <b>Cotisations et contributions sociales</b> et <b>Frais de Chambres Consulaires</b> devraient être arrondis à l'entier inférieur. La <b>Contribution à la Formation Professionnelle</b> devrait être arrondie à l'entier le plus proche. Faites votre choix.
 AME_TaxRound_None_Short=None
 AME_TaxRound_Floor_Short=Whole number down
 AME_TaxRound_Round_Short=Nearest whole number

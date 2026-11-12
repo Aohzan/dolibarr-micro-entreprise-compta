@@ -194,7 +194,7 @@ class taxEdit extends AMEPage {
 			if( ! in_array( $this->new_y, $years_array, true ) )
 				throw new AMEWrongYear( $this->new_y );
 
-			// ... then others def_x values will be setted up to defaults
+			// ... then others def_x values will be set up to defaults
 			$this->def_y = $this->new_y;
 			$this->def_l = $this->new_l;
 		}

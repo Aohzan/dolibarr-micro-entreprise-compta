@@ -25,4 +25,3 @@ function onLoadUpdates() {
 }
 
 addToOnLoad( onLoadUpdates );
-

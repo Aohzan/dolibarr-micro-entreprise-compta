@@ -221,4 +221,3 @@ function addToOnLoad(o) {
 	else
 		document.addEventListener('load', o, false);
 }
-

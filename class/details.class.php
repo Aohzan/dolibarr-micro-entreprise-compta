@@ -264,7 +264,7 @@ class detailsTable extends AMEPage {
 		<td style="'.$s1.'"></td>
 	</tr>';
 
-			if($j == $max) { // last occurence in the foreach loop
+			if($j == $max) { // last occurrence in the foreach loop
 				$v = !$v;
 				$round = $sum;
 				$rs = $this->getRoundShortString($l+1, $round);

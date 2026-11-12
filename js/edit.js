@@ -36,4 +36,3 @@ function onLoadUpdates() {
 }
 
 addToOnLoad( onLoadUpdates );
-

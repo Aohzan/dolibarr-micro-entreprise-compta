@@ -36,4 +36,3 @@ ALTER TABLE llx_ame_rates ADD COLUMN level tinyint UNSIGNED NOT NULL DEFAULT 1 A
 
 -- XXX : rounded values at taxes level ?
 --ALTER TABLE llx_ame_rates ADD COLUMN round tinyint UNSIGNED NOT NULL DEFAULT 1 AFTER second;
-

@@ -25,7 +25,7 @@
 
 abstract class AMEPage {
 	abstract protected function showPage();
-	
+
 	protected function printPageFooter() {
 		print '
 <div style="margin:30px 0;">
