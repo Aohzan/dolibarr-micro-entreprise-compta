@@ -1,0 +1,50 @@
+---
+# Development and end-to-end test environment.
+# DOLIBARR=latest|previous selects the Dolibarr image (dev/docker/dolibarr-<track>):
+# the latest major and the previous one, the two Dolibarr supports.
+name: automicroent-${DOLIBARR:-latest}
+
+services:
+  mariadb:
+    build: dev/docker/mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: dolidb
+      MARIADB_USER: dolidbuser
+      MARIADB_PASSWORD: dolidbpass
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  web:
+    build: dev/docker/dolibarr-${DOLIBARR:-latest}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DOLI_DB_HOST: mariadb
+      DOLI_DB_NAME: dolidb
+      DOLI_DB_USER: dolidbuser
+      DOLI_DB_PASSWORD: dolidbpass
+      DOLI_URL_ROOT: http://localhost:${DOLIBARR_PORT:-8080}
+      DOLI_ADMIN_LOGIN: admin
+      DOLI_ADMIN_PASSWORD: admin
+      DOLI_PROD: 0
+      DOLI_COMPANY_NAME: Demo Micro
+      DOLI_COMPANY_COUNTRYCODE: FR
+      DOLI_ENABLE_MODULES: Societe,Product,Service,Facture,Banque,Comptabilite,AutoMicroEnt
+      PHP_INI_DATE_TIMEZONE: Europe/Paris
+      WWW_USER_ID: ${WWW_USER_ID:-1000}
+      WWW_GROUP_ID: ${WWW_GROUP_ID:-1000}
+    volumes:
+      - .:/var/www/html/custom/automicroent:ro
+      - ./dev/docker-init.d:/var/www/scripts/docker-init.d:ro
+    # Hide the development dependencies: the image walks custom/ at boot.
+    tmpfs:
+      - /var/www/html/custom/automicroent/node_modules
+      - /var/www/html/custom/automicroent/vendor
+      - /var/www/html/custom/automicroent/.cache
+    ports:
+      - "${DOLIBARR_PORT:-8080}:80"

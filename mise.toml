@@ -1,0 +1,39 @@
+[settings]
+# Never install a tool version published less than 7 days ago.
+minimum_release_age = "7d"
+
+[tools]
+prek = "latest"
+node = "lts"
+php = "8.3"
+docker-compose = "latest"
+zizmor = "latest"
+committed = "latest"
+
+[tasks.install]
+description = "Install development dependencies and git hooks"
+run = [
+  "composer install",
+  "npm ci",
+  "prek install --hook-type pre-commit --hook-type commit-msg",
+]
+
+[tasks.lint]
+description = "Run every linter on the whole repository"
+run = "prek run --all-files"
+
+[tasks.test]
+description = "Run the PHPUnit test suite"
+run = "composer test"
+
+[tasks.dev]
+description = "Start a seeded Dolibarr with the module mounted (DOLIBARR=latest|previous)"
+run = ["mkdir -p node_modules vendor .cache", "docker-compose up -d --build --wait", "dev/wait-ready.sh"]
+
+[tasks.down]
+description = "Stop Dolibarr and drop its data"
+run = "docker-compose down --volumes"
+
+[tasks.e2e]
+description = "Run the Playwright end-to-end tests against the dev environment"
+run = "npx playwright test"

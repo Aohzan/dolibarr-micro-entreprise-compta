@@ -1,0 +1,5 @@
+# Copy to mise.local.toml (git-ignored) for machine-specific settings.
+
+[env]
+# Podman: point docker-compose to the rootless Podman socket.
+DOCKER_HOST = "unix://{{ env.XDG_RUNTIME_DIR }}/podman/podman.sock"

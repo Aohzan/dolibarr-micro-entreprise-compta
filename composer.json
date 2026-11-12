@@ -1,0 +1,25 @@
+{
+    "name": "aohzan/dolibarr-micro-entreprise-compta",
+    "description": "Development tooling of the automicroent Dolibarr module (tests and static analysis).",
+    "license": "GPL-3.0-only",
+    "type": "project",
+    "require": {
+        "php": ">=8.2"
+    },
+    "config": {
+        "platform": {
+            "php": "8.2.0"
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpcs": "phpcs",
+        "phpstan": "phpstan analyse --memory-limit=1G"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2",
+        "phpunit/phpunit": "^11",
+        "squizlabs/php_codesniffer": "^3"
+    }
+}
