@@ -277,17 +277,38 @@ class AmeRateRepository
 	{
 		$rows = $this->matrix();
 		$newKey = self::rowKey($level, $type, $name);
+		$drop = array();
 		if ($newKey !== $key && isset($rows[$newKey])) {
-			throw new InvalidArgumentException('AME_ErrorRowExists');
+			// Renaming a row like another one merges them, when no year has a value in
+			// both: the legacy module let names drift from year to year.
+			if ($key === null || !isset($rows[$key])) {
+				throw new InvalidArgumentException('AME_ErrorRowExists');
+			}
+			foreach ($rows[$key]['cells'] as $year => $cell) {
+				$target = $rows[$newKey]['cells'][$year] ?? null;
+				if ($target === null) {
+					continue;
+				}
+				if ($cell['rate'] !== null && $target['rate'] !== null) {
+					throw new InvalidArgumentException('AME_ErrorRowExists');
+				}
+				// Keep one record per year: the one with a value.
+				$drop[] = ($cell['rate'] === null) ? $cell['id'] : $target['id'];
+			}
 		}
 
 		$this->db->begin();
+		if ($drop) {
+			$this->query('DELETE FROM '.$this->table.' WHERE entity = '.$this->entity.' AND rowid IN ('.implode(',', array_map('intval', $drop)).')');
+		}
 		if ($key !== null && isset($rows[$key])) {
-			$ids = array_column($rows[$key]['cells'], 'id');
-			$sql = 'UPDATE '.$this->table.' SET level = '.$level.', type = '.$type;
-			$sql .= ", name = '".$this->db->escape($name)."', comment = ".$this->sqlComment($comment);
-			$sql .= ' WHERE rowid IN ('.implode(',', array_map('intval', $ids)).')';
-			$this->query($sql);
+			$ids = array_diff(array_column($rows[$key]['cells'], 'id'), $drop);
+			if ($ids) {
+				$sql = 'UPDATE '.$this->table.' SET level = '.$level.', type = '.$type;
+				$sql .= ", name = '".$this->db->escape($name)."', comment = ".$this->sqlComment($comment);
+				$sql .= ' WHERE rowid IN ('.implode(',', array_map('intval', $ids)).')';
+				$this->query($sql);
+			}
 		} else {
 			$years = $this->years();
 			if (!$years) {

@@ -82,3 +82,28 @@ test('a tax row is added, renamed and deleted', async ({ page }) => {
   await page.getByRole('button', { name: 'Oui' }).click();
   await expect(page.locator('#ame-rates td', { hasText: 'Taxe test' })).toHaveCount(0);
 });
+
+test('renaming a tax like another one merges them when they share no year', async ({ page }) => {
+  // Two rows of the same tax, named differently in 2023 and 2024, as the legacy module allowed.
+  await page.goto(modulePage('rates.php'));
+  for (const [name, year] of [['Fusion A', 2023], ['Fusion B', 2024]] as const) {
+    await page.locator('a.btnTitle[title="Ajouter une taxe"]').click();
+    await rowForm(page).locator('input[name="name"]').fill(name);
+    await rowForm(page).locator('select[name="level"]').selectOption('4', { force: true });
+    await rowForm(page).getByRole('button', { name: 'Enregistrer' }).click();
+    await page.locator(cell(name, year)).fill('1');
+    await page.locator(cell(name, 2026)).fill('');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+  }
+
+  await page.locator('#ame-rates tr', { hasText: 'Fusion B' }).locator('a[title="Modifier"]').click();
+  await rowForm(page).locator('input[name="name"]').fill('Fusion A');
+  await rowForm(page).getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.locator('#ame-rates td:text-is("Fusion B")')).toHaveCount(0);
+  await expect(page.locator(cell('Fusion A', 2023))).toHaveValue('1');
+  await expect(page.locator(cell('Fusion A', 2024))).toHaveValue('1');
+
+  await page.locator('#ame-rates tr', { hasText: 'Fusion A' }).locator('a[title="Supprimer"]').click();
+  await page.getByRole('button', { name: 'Oui' }).click();
+  await expect(page.locator('#ame-rates td:text-is("Fusion A")')).toHaveCount(0);
+});

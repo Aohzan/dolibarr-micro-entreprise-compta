@@ -125,5 +125,5 @@ AME_ErrorChooseProfile=Choose your activity.
 AME_ErrorYear=Invalid year.
 AME_ErrorYearExists=This year already exists.
 AME_ErrorRowFields=The name, category and base are required.
-AME_ErrorRowExists=A tax with this name, category and base already exists.
+AME_ErrorRowExists=A tax with this name, category and base already exists for the same years. Renaming a tax like another one merges them only when they share no year.
 AME_RatesInvalid=Values left unchanged, not a rate between 0 and 100: %s
