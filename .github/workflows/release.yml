@@ -27,7 +27,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          # semantic-release pushes the release commit and tag with this token.
+          # semantic-release pushes the release commit and tag with this token:
+          # RELEASE_TOKEN goes through a branch ruleset, GITHUB_TOKEN does not.
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: true # zizmor: ignore[artipacked] no artifact is uploaded
 
       - name: Set up Node.js
@@ -41,5 +43,5 @@ jobs:
 
       - name: Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: npx semantic-release
