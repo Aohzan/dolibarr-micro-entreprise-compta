@@ -22,4 +22,4 @@
   code accordingly.
 - Minor fixes.
 
-For previous versions, see `docs/ChangeLog`.
+Older versions (2013-2018) are listed in `docs/ChangeLog`.

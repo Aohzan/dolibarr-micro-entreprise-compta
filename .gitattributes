@@ -20,6 +20,7 @@
 /composer.lock export-ignore
 /dev export-ignore
 /docker-compose.yml export-ignore
+/dolistore export-ignore
 /mise.toml export-ignore
 /mise.local.toml.example export-ignore
 /package.json export-ignore

@@ -22,7 +22,13 @@ export default defineConfig({
   projects: [
     {
       name: 'e2e',
+      testIgnore: /screenshots\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'screenshots',
+      testMatch: /screenshots\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
     },
   ],
 });

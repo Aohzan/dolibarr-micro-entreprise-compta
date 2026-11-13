@@ -131,7 +131,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run end-to-end tests
-        run: npx playwright test
+        run: npm run e2e
 
       - name: Dolibarr logs
         if: failure()

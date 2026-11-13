@@ -36,4 +36,8 @@ run = "docker-compose down --volumes"
 
 [tasks.e2e]
 description = "Run the Playwright end-to-end tests against the dev environment"
-run = "npx playwright test"
+run = "npm run e2e"
+
+[tasks.screenshots]
+description = "Regenerate the README screenshots from the dev environment"
+run = "npm run screenshots"

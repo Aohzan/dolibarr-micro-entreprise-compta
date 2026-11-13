@@ -132,8 +132,8 @@ class AmeContributionCalculator
 	/**
 	 * Round a category total the way URSSAF does for that year.
 	 *
-	 * Until 2015 the social contributions and the chamber fees were rounded
-	 * down; since 2016 every category is rounded to the nearest euro.
+	 * Until 2015 the social contributions, the chamber fees and the other
+	 * contributions were rounded down; since 2016 every category is rounded to the nearest euro.
 	 *
 	 * @param float $amount Sum of the category
 	 * @param int   $level  Category
