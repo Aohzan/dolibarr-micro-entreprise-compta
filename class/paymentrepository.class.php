@@ -118,6 +118,8 @@ class AmePaymentRepository
 			}
 		}
 
+		$this->addDepositSources($invoices);
+
 		$receipts = array();
 		foreach ($calculator->receipts($invoices, $allocations) as $receipt) {
 			if ($receipt['date'] >= substr($from, 0, 10) && $receipt['date'] < substr($to, 0, 10)) {
@@ -125,6 +127,57 @@ class AmePaymentRepository
 			}
 		}
 		return $receipts;
+	}
+
+	/**
+	 * Add to each deposit invoice the lines of the proposal or order it comes
+	 * from: a deposit settles the goods of that sale first.
+	 *
+	 * @param array<int, array<string, mixed>> $invoices Invoices keyed by id, changed in place
+	 * @return void
+	 */
+	private function addDepositSources(array &$invoices): void
+	{
+		$deposits = array();
+		foreach ($invoices as $id => $invoice) {
+			if ((int) $invoice['type'] === AmeTurnoverCalculator::INVOICE_DEPOSIT) {
+				$deposits[] = (int) $id;
+			}
+		}
+		if (!$deposits) {
+			return;
+		}
+
+		// The order wins over the proposal: it is the final state of the sale.
+		$sources = array();
+		$sql = 'SELECT fk_target, fk_source, sourcetype FROM '.MAIN_DB_PREFIX.'element_element';
+		$sql .= " WHERE targettype = 'facture' AND sourcetype IN ('propal', 'commande')";
+		$sql .= ' AND fk_target IN ('.implode(',', $deposits).')';
+		$resql = $this->query($sql);
+		while ($obj = $this->db->fetch_object($resql)) {
+			$target = (int) $obj->fk_target;
+			if (!isset($sources[$target]) || $obj->sourcetype === 'commande') {
+				$sources[$target] = array($obj->sourcetype, (int) $obj->fk_source);
+			}
+		}
+
+		$tables = array('propal' => array('propaldet', 'fk_propal'), 'commande' => array('commandedet', 'fk_commande'));
+		foreach ($sources as $target => $source) {
+			list($table, $column) = $tables[$source[0]];
+			$sql = 'SELECT product_type, fk_product, total_ht, total_ttc FROM '.MAIN_DB_PREFIX.$table;
+			$sql .= ' WHERE '.$column.' = '.$source[1];
+			$resql = $this->query($sql);
+			$lines = array();
+			while ($obj = $this->db->fetch_object($resql)) {
+				$lines[] = array(
+					'product_type' => (int) $obj->product_type,
+					'fk_product' => (int) $obj->fk_product,
+					'total_ht' => (float) $obj->total_ht,
+					'total_ttc' => (float) $obj->total_ttc,
+				);
+			}
+			$invoices[$target]['source_lines'] = $lines;
+		}
 	}
 
 	/**

@@ -32,7 +32,7 @@
  * Pure PHP: the data comes from AmePaymentRepository, so it is unit tested.
  *
  * @phpstan-type InvoiceLine array{product_type: int, fk_product: int, total_ht: float, total_ttc: float, discount?: bool}
- * @phpstan-type Invoice array{ref: string, total_ttc: float, type?: int, lines: list<InvoiceLine>}
+ * @phpstan-type Invoice array{ref: string, total_ttc: float, type?: int, lines: list<InvoiceLine>, source_lines?: list<InvoiceLine>}
  * @phpstan-type Allocation array{payment_id: int, date: string, invoice_id: int, amount: float}
  * @phpstan-type Receipt array{payment_id: int, date: string, invoice_id: int, invoice_ref: string, amount: float, partial: bool, activities: array<string, float>}
  */
@@ -229,16 +229,23 @@ class AmeTurnoverCalculator
 	/**
 	 * Totals of an invoice per activity, goods first: they are settled first.
 	 *
+	 * A deposit is a partial payment of the sale it comes from: it settles
+	 * the goods of its proposal or order first, then the services. Without
+	 * that document, it holds the activity given to the constructor.
 	 * Discount lines (a deposit or a credit note deducted from the invoice)
-	 * carry no activity of their own: they lower every activity of the
-	 * invoice in proportion. A deposit invoice holds the activity given to
-	 * the constructor, whatever the type of its lines.
+	 * carry no activity of their own: they lower the goods first, which the
+	 * deposit paid first, then the other activities.
 	 *
 	 * @param Invoice $invoice Invoice
 	 * @return array<string, array{ht: float, ttc: float}>
 	 */
 	private function activityGroups(array $invoice): array
 	{
+		$isDeposit = (($invoice['type'] ?? 0) === self::INVOICE_DEPOSIT);
+		if ($isDeposit && !empty($invoice['source_lines'])) {
+			return $this->depositGroups($invoice);
+		}
+
 		$groups = array();
 		$discountHt = 0.0;
 		$discountTtc = 0.0;
@@ -248,7 +255,7 @@ class AmeTurnoverCalculator
 				$discountTtc += (float) $line['total_ttc'];
 				continue;
 			}
-			$activity = (($invoice['type'] ?? 0) === self::INVOICE_DEPOSIT && $this->depositActivity !== null && in_array((int) $line['product_type'], array(0, 1), true))
+			$activity = ($isDeposit && $this->depositActivity !== null && in_array((int) $line['product_type'], array(0, 1), true))
 				? $this->depositActivity
 				: call_user_func($this->activityOf, $line);
 			if ($activity === null) {
@@ -257,23 +264,111 @@ class AmeTurnoverCalculator
 			$groups[$activity]['ht'] = ($groups[$activity]['ht'] ?? 0) + (float) $line['total_ht'];
 			$groups[$activity]['ttc'] = ($groups[$activity]['ttc'] ?? 0) + (float) $line['total_ttc'];
 		}
+		return $this->deductInOrder(self::sortGroups($groups), $discountHt, $discountTtc);
+	}
 
-		$baseHt = 0.0;
-		$baseTtc = 0.0;
-		foreach ($groups as $group) {
-			$baseHt += $group['ht'];
-			$baseTtc += $group['ttc'];
+	/**
+	 * Activities of a deposit invoice: its amount settles the goods of the
+	 * proposal or order it comes from first, then the services.
+	 *
+	 * @param Invoice $invoice Deposit invoice with its source_lines
+	 * @return array<string, array{ht: float, ttc: float}>
+	 */
+	private function depositGroups(array $invoice): array
+	{
+		$amountHt = 0.0;
+		$amountTtc = 0.0;
+		foreach ($invoice['lines'] as $line) {
+			$amountHt += (float) $line['total_ht'];
+			$amountTtc += (float) $line['total_ttc'];
 		}
-		if (abs($baseTtc) >= 0.005) {
-			foreach ($groups as $activity => $group) {
-				$groups[$activity]['ht'] += (abs($baseHt) >= 0.005) ? $discountHt * $group['ht'] / $baseHt : 0;
-				$groups[$activity]['ttc'] += $discountTtc * $group['ttc'] / $baseTtc;
+		$source = array();
+		foreach ($invoice['source_lines'] as $line) {
+			$activity = call_user_func($this->activityOf, $line);
+			if ($activity !== null) {
+				$source[$activity] = ($source[$activity] ?? 0) + (float) $line['total_ttc'];
 			}
 		}
+		uksort($source, array(self::class, 'compareActivities'));
+		if (!$source || $amountTtc <= 0) {
+			return array();
+		}
 
-		uksort($groups, function ($a, $b) {
-			return array($a !== self::SALE, $a) <=> array($b !== self::SALE, $b);
-		});
+		$ratio = $amountHt / $amountTtc;
+		$groups = array();
+		$left = $amountTtc;
+		foreach ($source as $activity => $total) {
+			$share = min($left, max(0.0, $total));
+			if ($share > 0) {
+				$groups[$activity] = array('ht' => $share * $ratio, 'ttc' => $share);
+				$left -= $share;
+			}
+		}
+		if ($left >= 0.005) {
+			// Deposit above the proposal: the rest counts as its last activity.
+			$activity = (string) key(array_slice($source, -1, 1, true));
+			$groups[$activity]['ht'] = ($groups[$activity]['ht'] ?? 0) + $left * $ratio;
+			$groups[$activity]['ttc'] = ($groups[$activity]['ttc'] ?? 0) + $left;
+		}
+		return self::sortGroups($groups);
+	}
+
+	/**
+	 * Lower the activities by the discount lines, goods first.
+	 *
+	 * @param array<string, array{ht: float, ttc: float}> $groups      Activities, goods first
+	 * @param float                                       $discountHt  Sum of the discount lines excluding VAT (negative)
+	 * @param float                                       $discountTtc Sum of the discount lines including VAT (negative)
+	 * @return array<string, array{ht: float, ttc: float}>
+	 */
+	private function deductInOrder(array $groups, float $discountHt, float $discountTtc): array
+	{
+		$total = 0.0;
+		foreach ($groups as $group) {
+			$total += $group['ttc'];
+		}
+		if ($discountTtc > -0.005 || $total <= 0) {
+			return $groups;
+		}
+
+		$ratio = $discountHt / $discountTtc;
+		$left = -$discountTtc;
+		foreach ($groups as $activity => $group) {
+			$take = min($left, max(0.0, $group['ttc']));
+			$groups[$activity]['ttc'] -= $take;
+			$groups[$activity]['ht'] -= $take * $ratio;
+			$left -= $take;
+		}
+		if ($left >= 0.005) {
+			// Discount above the invoice: what remains lowers the last activity.
+			$activity = (string) key(array_slice($groups, -1, 1, true));
+			$groups[$activity]['ttc'] -= $left;
+			$groups[$activity]['ht'] -= $left * $ratio;
+		}
+		return $groups;
+	}
+
+	/**
+	 * Order activities goods first, then by name.
+	 *
+	 * @param string $a Activity
+	 * @param string $b Activity
+	 * @return int
+	 */
+	private static function compareActivities(string $a, string $b): int
+	{
+		return array($a !== self::SALE, $a) <=> array($b !== self::SALE, $b);
+	}
+
+	/**
+	 * Sort activity groups goods first.
+	 *
+	 * @param array<string, array{ht: float, ttc: float}> $groups Activities
+	 * @return array<string, array{ht: float, ttc: float}>
+	 */
+	private static function sortGroups(array $groups): array
+	{
+		uksort($groups, array(self::class, 'compareActivities'));
 		return $groups;
 	}
 

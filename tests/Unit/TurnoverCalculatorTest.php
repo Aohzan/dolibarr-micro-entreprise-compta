@@ -205,12 +205,50 @@ final class TurnoverCalculatorTest extends TestCase
 	/**
 	 * @return void
 	 */
-	public function testDiscountLineLowersEveryActivityInProportion(): void
+	public function testDiscountLineLowersTheGoodsFirst(): void
 	{
 		$invoices = array(1 => self::invoice(array(self::line(0, 200), self::line(1, 800), self::line(1, -100) + array('discount' => true))));
 		$receipts = (new AmeTurnoverCalculator())->receipts($invoices, array(self::pay(1, '2026-01-10', 900)));
 
-		$this->assertSame(array('sale' => 180.0, 'service' => 720.0), $receipts[0]['activities']);
+		$this->assertSame(array('sale' => 100.0, 'service' => 800.0), $receipts[0]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testDepositSettlesTheGoodsOfItsProposalFirst(): void
+	{
+		// Deposit of 2,500 on a proposal of 6,555 of goods and 180 of services,
+		// then the final invoice deducting it (case found on real data).
+		$calculator = new AmeTurnoverCalculator(null, AmeTurnoverCalculator::SERVICE);
+		$deposit = array(
+			'ref' => 'AC1', 'total_ttc' => 2500.0, 'type' => AmeTurnoverCalculator::INVOICE_DEPOSIT,
+			'lines' => array(self::line(1, 2500)),
+			'source_lines' => array(self::line(0, 6555), self::line(1, 180)),
+		);
+		$final = self::invoice(array(self::line(0, 6555), self::line(1, 180), self::line(0, -2500) + array('discount' => true)));
+		$receipts = $calculator->receipts(array(1 => $deposit, 2 => $final), array(
+			self::pay(1, '2023-10-23', 2500, 1),
+			self::pay(2, '2023-12-19', 4235, 2),
+		));
+
+		$this->assertSame(array('sale' => 2500.0), $receipts[0]['activities']);
+		$this->assertSame(array('sale' => 4055.0, 'service' => 180.0), $receipts[1]['activities']);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function testDepositAboveItsProposalGoodsCountsTheRestAsServices(): void
+	{
+		$deposit = array(
+			'ref' => 'AC1', 'total_ttc' => 500.0, 'type' => AmeTurnoverCalculator::INVOICE_DEPOSIT,
+			'lines' => array(self::line(0, 500)),
+			'source_lines' => array(self::line(0, 300), self::line(1, 1000)),
+		);
+		$receipts = (new AmeTurnoverCalculator())->receipts(array(1 => $deposit), array(self::pay(1, '2026-01-10', 500)));
+
+		$this->assertSame(array('sale' => 300.0, 'service' => 200.0), $receipts[0]['activities']);
 	}
 
 	/**
