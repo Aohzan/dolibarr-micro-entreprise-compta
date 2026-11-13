@@ -107,6 +107,16 @@ try {
 		exit;
 	}
 
+	if ($action === 'addthresholds') {
+		if (ameProfile() === '') {
+			throw new InvalidArgumentException('AME_ErrorChooseProfile');
+		}
+		$count = $repository->addCatalogThresholds(ameProfile(), $langs);
+		setEventMessages($langs->trans('AME_ThresholdsAdded', $count), null);
+		header('Location: '.$self);
+		exit;
+	}
+
 	if ($action === 'saverow') {
 		$name = trim(GETPOST('name', 'alphanohtml'));
 		$level = GETPOSTINT('level');
@@ -299,8 +309,9 @@ foreach ($rows as $row) {
 		$rate = $row['cells'][$y]['rate'] ?? null;
 		$value = ($rate === null) ? '' : rtrim(rtrim(number_format($rate, 4, '.', ''), '0'), '.');
 		$label = dol_escape_htmltag($row['name'].' '.$y);
+		$isThreshold = ($row['level'] === AmeContributionCalculator::LEVEL_THRESHOLD);
 		print '<td class="center nowraponall">';
-		print '<input type="number" step="any" min="0" max="100" class="flat width75 right" name="rate['.$row['key'].']['.$y.']" value="'.$value.'" aria-label="'.$label.'" placeholder="–"> %';
+		print '<input type="number" step="any" min="0"'.($isThreshold ? '' : ' max="100"').' class="flat '.($isThreshold ? 'width100' : 'width75').' right" name="rate['.$row['key'].']['.$y.']" value="'.$value.'" aria-label="'.$label.'" placeholder="–"> '.($isThreshold ? '€' : '%');
 		print '</td>';
 	}
 	print '<td class="right nowraponall">';
@@ -312,6 +323,14 @@ foreach ($rows as $row) {
 print '</table>';
 print '</div>';
 print '<div class="opacitymedium small">'.$langs->trans('AME_EmptyRateHelp').'</div>';
+$hasThresholds = false;
+foreach ($rows as $row) {
+	$hasThresholds = $hasThresholds || $row['level'] === AmeContributionCalculator::LEVEL_THRESHOLD;
+}
+if (!$hasThresholds && ameProfile() !== '') {
+	print '<div class="info">'.$langs->trans('AME_NoThreshold').' ';
+	print '<a class="button smallpaddingimp" href="'.$self.'?action=addthresholds&token='.newToken().'">'.$langs->trans('AME_AddThresholds').'</a></div>';
+}
 if ($rows) {
 	print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
 }

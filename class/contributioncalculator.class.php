@@ -41,20 +41,24 @@ class AmeContributionCalculator
 	const LEVEL_TRAINING = 3;
 	const LEVEL_OTHER = 4;
 	const LEVEL_INCOME_TAX = 5;
+	/** Not a rate: a turnover ceiling in euros (see AmeThresholdCheck). */
+	const LEVEL_THRESHOLD = 10;
 
 	/** Bases (column "type" of llx_ame_rates). */
 	const BASE_SALES = 0;
 	const BASE_SERVICES = 1;
 	const BASE_ALL = 2;
+	const BASE_SERVICES_BIC = 3;
+	const BASE_SERVICES_BNC = 4;
 
 	/**
-	 * Categories, in display order.
+	 * Categories, in display order; the last one holds the ceilings.
 	 *
 	 * @return list<int>
 	 */
 	public static function levels(): array
 	{
-		return array(self::LEVEL_SOCIAL, self::LEVEL_CHAMBER, self::LEVEL_TRAINING, self::LEVEL_INCOME_TAX, self::LEVEL_OTHER);
+		return array(self::LEVEL_SOCIAL, self::LEVEL_CHAMBER, self::LEVEL_TRAINING, self::LEVEL_INCOME_TAX, self::LEVEL_OTHER, self::LEVEL_THRESHOLD);
 	}
 
 	/**
@@ -64,7 +68,7 @@ class AmeContributionCalculator
 	 */
 	public static function bases(): array
 	{
-		return array(self::BASE_SALES, self::BASE_SERVICES, self::BASE_ALL);
+		return array(self::BASE_SALES, self::BASE_SERVICES, self::BASE_SERVICES_BIC, self::BASE_SERVICES_BNC, self::BASE_ALL);
 	}
 
 	/**
@@ -93,12 +97,36 @@ class AmeContributionCalculator
 	{
 		$sum = 0;
 		foreach ($declared as $activity => $amount) {
-			$isSale = ($activity === AmeTurnoverCalculator::SALE);
-			if ($base === self::BASE_ALL || ($base === self::BASE_SALES && $isSale) || ($base === self::BASE_SERVICES && !$isSale)) {
+			if (self::inBase((string) $activity, $base)) {
 				$sum += $amount;
 			}
 		}
 		return $sum;
+	}
+
+	/**
+	 * Whether an activity belongs to a base.
+	 *
+	 * @param string $activity Activity
+	 * @param int    $base     One of the BASE_* constants
+	 * @return bool
+	 */
+	public static function inBase(string $activity, int $base): bool
+	{
+		switch ($base) {
+			case self::BASE_ALL:
+				return true;
+			case self::BASE_SALES:
+				return $activity === AmeTurnoverCalculator::SALE;
+			case self::BASE_SERVICES:
+				return $activity !== AmeTurnoverCalculator::SALE;
+			case self::BASE_SERVICES_BIC:
+				return $activity === AmeTurnoverCalculator::SERVICE_BIC;
+			case self::BASE_SERVICES_BNC:
+				return $activity === AmeTurnoverCalculator::SERVICE_BNC;
+			default:
+				return false;
+		}
 	}
 
 	/**

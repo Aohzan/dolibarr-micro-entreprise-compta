@@ -37,6 +37,11 @@ require_once __DIR__.'/contributioncalculator.class.php';
  * - Chamber fees: CCI sales 0.015 %, CCI services 0.044 %, CMA services
  *   0.48 % (URSSAF).
  *
+ * - Ceilings: micro-entreprise 188,700 / 77,700 EUR until 2025, 203,100 /
+ *   83,600 EUR from 2026; VAT franchise 85,000 (increased 93,500) EUR for
+ *   sales and 37,500 (41,250) EUR for services in 2025 and 2026
+ *   (economie.gouv.fr, impots.gouv.fr, BOI-TVA-DECLA-40-10-10).
+ *
  * Users must check the rates of their own situation: the catalog only
  * fills the configuration, it can be edited afterwards.
  *
@@ -97,6 +102,55 @@ class AmeTaxCatalog
 			),
 		),
 	);
+
+	/**
+	 * Ceilings per year: [base, translation key, amount in euros]. A sales
+	 * ceiling caps the whole turnover, a services one the services only.
+	 */
+	const THRESHOLDS = array(
+		2025 => array(
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogMicroCeiling', 188700),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogMicroCeiling', 77700),
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogVatThreshold', 85000),
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogVatThresholdIncreased', 93500),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogVatThreshold', 37500),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogVatThresholdIncreased', 41250),
+		),
+		2026 => array(
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogMicroCeiling', 203100),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogMicroCeiling', 83600),
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogVatThreshold', 85000),
+			array(AmeContributionCalculator::BASE_SALES, 'AME_CatalogVatThresholdIncreased', 93500),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogVatThreshold', 37500),
+			array(AmeContributionCalculator::BASE_SERVICES, 'AME_CatalogVatThresholdIncreased', 41250),
+		),
+	);
+
+	/**
+	 * Ceilings of a profile for a year. Every profile gets both families:
+	 * a services business can also sell goods, and the other way round.
+	 *
+	 * @param string $profile Activity profile
+	 * @param int    $year    Year (from 2025: earlier ceilings are not in the catalog)
+	 * @return list<array{type: int, key: string, amount: int}>
+	 */
+	public static function thresholds(string $profile, int $year): array
+	{
+		if ($year < 2025 || !in_array($profile, self::profiles(), true)) {
+			return array();
+		}
+		$source = 2025;
+		foreach (array_keys(self::THRESHOLDS) as $candidate) {
+			if ($candidate <= $year) {
+				$source = $candidate;
+			}
+		}
+		$lines = array();
+		foreach (self::THRESHOLDS[$source] as $line) {
+			$lines[] = array('type' => $line[0], 'key' => $line[1], 'amount' => $line[2]);
+		}
+		return $lines;
+	}
 
 	/**
 	 * Activity profiles, in display order.

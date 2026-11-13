@@ -74,8 +74,25 @@ class modAutoMicroEnt extends DolibarrModules
 		$this->const = array();
 		$this->tabs = array();
 		$this->dictionaries = array();
-		$this->boxes = array();
-		$this->cronjobs = array();
+		$this->boxes = array(
+			array('file' => 'box_automicroent.php@automicroent', 'note' => 'AME_BoxTitle', 'enabledbydefaulton' => 'Home'),
+		);
+		$this->cronjobs = array(
+			array(
+				'label' => 'AME_CronReminder:automicroent@automicroent',
+				'jobtype' => 'method',
+				'class' => '/automicroent/class/deadlinereminder.class.php',
+				'objectname' => 'AmeDeadlineReminder',
+				'method' => 'createDeadlineEvents',
+				'parameters' => '',
+				'comment' => 'AME_CronReminderComment',
+				'frequency' => 1,
+				'unitfrequency' => 86400,
+				'status' => 1,
+				'test' => 'isModEnabled("automicroent") && isModEnabled("agenda")',
+				'priority' => 50,
+			),
+		);
 
 		$this->rights = array();
 		$this->rights[] = array(451051, 'AME_PermissionUse', 'r', 1, 'use');

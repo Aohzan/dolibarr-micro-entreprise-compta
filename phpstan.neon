@@ -25,6 +25,8 @@ parameters:
 		- .cache/dolibarr/htdocs/societe/class
 		- .cache/dolibarr/htdocs/product/class
 		- .cache/dolibarr/htdocs/compta
+		- .cache/dolibarr/htdocs/comm/action/class
+		- .cache/dolibarr/htdocs/categories/class
 	ignoreErrors:
 		# Globals set by Dolibarr's main.inc.php / master.inc.php.
 		- identifier: variable.undefined

@@ -127,6 +127,34 @@ $effective = ($yearTurnover > 0) ? ameRate(round($yearContributions / $yearTurno
 print ameKpi('fa-percent', $langs->trans('AME_EffectiveRate'), $effective);
 print '</div>';
 
+// Ceilings of the year
+try {
+	$thresholds = ameRates()->thresholds($year);
+} catch (RuntimeException $e) {
+	$thresholds = array();
+}
+$yearTurnoverByActivity = AmeTurnoverCalculator::sumMonths(AmeTurnoverCalculator::monthly($receipts, $year), range(1, 12));
+$checks = AmeThresholdCheck::check(
+	ameSum($yearTurnoverByActivity, AmeContributionCalculator::BASE_SALES),
+	ameSum($yearTurnoverByActivity, AmeContributionCalculator::BASE_SERVICES),
+	$thresholds,
+	ameThresholdAlert()
+);
+if ($checks) {
+	$worst = AmeThresholdCheck::worst($checks);
+	if ($worst !== AmeThresholdCheck::STATE_OK) {
+		print info_admin($langs->trans($worst === AmeThresholdCheck::STATE_OVER ? 'AME_ThresholdOver' : 'AME_ThresholdWarning', ameThresholdAlert()), 0, 0, '1', $worst === AmeThresholdCheck::STATE_OVER ? 'error' : 'warning');
+	}
+	print '<table class="noborder centpercent" id="ame-thresholds">';
+	print '<tr class="liste_titre"><th>'.$langs->trans('AME_Level10').'</th><th class="right">'.$langs->trans('AME_TurnoverCollected').'</th><th class="right">'.$langs->trans('AME_Ceiling').'</th><th class="right"></th></tr>';
+	foreach ($checks as $check) {
+		print '<tr class="oddeven" data-state="'.$check['state'].'"><td>'.dol_escape_htmltag($check['name']).'</td>';
+		print '<td class="right amount">'.ameMoney($check['amount'], false).'</td><td class="right amount">'.ameMoney($check['limit'], false).'</td>';
+		print '<td class="right">'.ameThresholdGauge($check).'</td></tr>';
+	}
+	print '</table><br>';
+}
+
 // Periods
 print '<div class="div-table-responsive">';
 print '<table class="noborder centpercent" id="ame-periods">';
@@ -169,7 +197,7 @@ print '<div class="opacitymedium">'.$langs->trans('AME_ToDeclareHelp', ameDate($
 print '<div class="fichecenter"><div class="fichehalfleft">';
 print '<table class="noborder centpercent" id="ame-declare">';
 print '<tr class="liste_titre"><th>'.$langs->trans('AME_UrssafLine').'</th><th class="right">'.$langs->trans('AME_AmountToDeclare').'</th></tr>';
-$activities = ameSortActivities($estimate['declared'] ?: array(AmeTurnoverCalculator::SERVICE => 0));
+$activities = ameSortActivities($estimate['declared'] ?: array(ameDefaultActivity() => 0));
 foreach ($activities as $activity => $amount) {
 	print '<tr class="oddeven"><td>'.ameActivityLabel($activity).'</td><td class="right amount"><strong>'.ameMoney($amount, false).'</strong></td></tr>';
 }
@@ -223,7 +251,7 @@ $monthly = AmeTurnoverCalculator::monthly($receipts, $year);
 $yearDeclared = AmeContributionCalculator::declared(AmeTurnoverCalculator::sumMonths($monthly, range(1, 12)));
 print '<table class="noborder centpercent" id="ame-yearly">';
 print '<tr class="liste_titre"><th>'.$langs->trans('AME_UrssafLine').'</th><th class="right">'.$langs->trans('AME_YearTurnover').'</th></tr>';
-foreach (ameSortActivities($yearDeclared ?: array(AmeTurnoverCalculator::SERVICE => 0)) as $activity => $amount) {
+foreach (ameSortActivities($yearDeclared ?: array(ameDefaultActivity() => 0)) as $activity => $amount) {
 	print '<tr class="oddeven"><td>'.ameActivityLabel($activity).'</td><td class="right amount"><strong>'.ameMoney($amount, false).'</strong></td></tr>';
 }
 print '</table>';

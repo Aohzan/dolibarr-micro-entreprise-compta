@@ -51,4 +51,17 @@ final class TaxCatalogTest extends TestCase
 		$this->assertNotContains(AmeContributionCalculator::LEVEL_INCOME_TAX, $levels);
 		$this->assertSame(array(), AmeTaxCatalog::lines('unknown', 2026, true));
 	}
+
+	/**
+	 * @return void
+	 */
+	public function testEveryProfileGetsBothCeilingFamilies(): void
+	{
+		$types = array_column(AmeTaxCatalog::thresholds(AmeTaxCatalog::PROFILE_BNC, 2026), 'type');
+		$this->assertContains(AmeContributionCalculator::BASE_SALES, $types);
+		$this->assertContains(AmeContributionCalculator::BASE_SERVICES, $types);
+		$this->assertSame(array(), AmeTaxCatalog::thresholds(AmeTaxCatalog::PROFILE_BNC, 2024));
+		$amounts = array_column(AmeTaxCatalog::thresholds(AmeTaxCatalog::PROFILE_SALES, 2027), 'amount');
+		$this->assertContains(203100, $amounts);
+	}
 }

@@ -34,7 +34,7 @@ services:
       DOLI_PROD: 0
       DOLI_COMPANY_NAME: Demo Micro
       DOLI_COMPANY_COUNTRYCODE: FR
-      DOLI_ENABLE_MODULES: Societe,Product,Service,Facture,Banque,Comptabilite,AutoMicroEnt
+      DOLI_ENABLE_MODULES: Societe,Product,Service,Facture,Banque,Comptabilite,Agenda,Cron,Categorie,AutoMicroEnt
       PHP_INI_DATE_TIMEZONE: Europe/Paris
       WWW_USER_ID: ${WWW_USER_ID:-1000}
       WWW_GROUP_ID: ${WWW_GROUP_ID:-1000}

@@ -111,13 +111,75 @@ class AmeRateRepository
 	{
 		$rates = array();
 		$sql = 'SELECT name, level, type, rate FROM '.$this->table;
-		$sql .= ' WHERE entity = '.$this->entity.' AND year = '.$year.' AND level > 0 AND rate IS NOT NULL';
+		$sql .= ' WHERE entity = '.$this->entity.' AND year = '.$year.' AND level > 0 AND level <> '.AmeContributionCalculator::LEVEL_THRESHOLD.' AND rate IS NOT NULL';
 		$sql .= ' ORDER BY level, position, rowid';
 		$resql = $this->query($sql);
 		while ($obj = $this->db->fetch_object($resql)) {
 			$rates[] = array('name' => $obj->name, 'level' => (int) $obj->level, 'type' => (int) $obj->type, 'rate' => (float) $obj->rate);
 		}
 		return $rates;
+	}
+
+	/**
+	 * Ceilings of a year, in euros.
+	 *
+	 * @param int $year Year
+	 * @return list<array{name: string, type: int, rate: float}>
+	 */
+	public function thresholds(int $year): array
+	{
+		$thresholds = array();
+		$sql = 'SELECT name, type, rate FROM '.$this->table;
+		$sql .= ' WHERE entity = '.$this->entity.' AND year = '.$year.' AND level = '.AmeContributionCalculator::LEVEL_THRESHOLD.' AND rate IS NOT NULL';
+		$sql .= ' ORDER BY type, rate, rowid';
+		$resql = $this->query($sql);
+		while ($obj = $this->db->fetch_object($resql)) {
+			$thresholds[] = array('name' => $obj->name, 'type' => (int) $obj->type, 'rate' => (float) $obj->rate);
+		}
+		return $thresholds;
+	}
+
+	/**
+	 * Name of a catalog ceiling: "VAT franchise (total)", "(services)".
+	 *
+	 * @param array{type: int, key: string} $line  Catalog ceiling
+	 * @param Translate                      $langs Translations
+	 * @return string
+	 */
+	private static function thresholdName(array $line, $langs): string
+	{
+		$scope = ($line['type'] === AmeContributionCalculator::BASE_SERVICES) ? 'AME_Base1' : 'AME_ThresholdTotal';
+		return $langs->transnoentitiesnoconv($line['key']).' ('.$langs->transnoentitiesnoconv($scope).')';
+	}
+
+	/**
+	 * Add the official ceilings to the years that have none.
+	 *
+	 * @param string    $profile Activity profile
+	 * @param Translate $langs   Translations, for the names
+	 * @return int Number of ceilings created
+	 */
+	public function addCatalogThresholds(string $profile, $langs): int
+	{
+		$rows = $this->matrix();
+		$count = 0;
+		$this->db->begin();
+		foreach ($this->years() as $year) {
+			if ($this->thresholds($year)) {
+				continue;
+			}
+			foreach (AmeTaxCatalog::thresholds($profile, $year) as $line) {
+				$name = self::thresholdName($line, $langs);
+				$key = self::rowKey(AmeContributionCalculator::LEVEL_THRESHOLD, $line['type'], $name);
+				if (isset($rows[$key]['cells'][$year])) {
+					continue;
+				}
+				$this->insert($year, AmeContributionCalculator::LEVEL_THRESHOLD, $line['type'], $name, '', (float) $line['amount']);
+				$count++;
+			}
+		}
+		$this->db->commit();
+		return $count;
 	}
 
 	/**
@@ -185,7 +247,7 @@ class AmeRateRepository
 					continue;
 				}
 				$value = is_string($value) ? trim($value) : '';
-				$rate = self::parseRate($value);
+				$rate = self::parseRate($value, $row['level'] === AmeContributionCalculator::LEVEL_THRESHOLD ? 1e9 : 100);
 				if ($value !== '' && $rate === null) {
 					$invalid[] = $row['name'].' '.$year;
 					continue;
@@ -227,6 +289,9 @@ class AmeRateRepository
 			foreach (AmeTaxCatalog::lines($profile, $year, $incomeTax) as $line) {
 				$lines[] = array('level' => $line['level'], 'type' => $line['type'], 'name' => $langs->transnoentitiesnoconv($line['key']), 'comment' => '', 'rate' => $line['rate']);
 			}
+			foreach (AmeTaxCatalog::thresholds($profile, $year) as $line) {
+				$lines[] = array('level' => AmeContributionCalculator::LEVEL_THRESHOLD, 'type' => $line['type'], 'name' => self::thresholdName($line, $langs), 'comment' => '', 'rate' => (float) $line['amount']);
+			}
 		} elseif ($source === self::SOURCE_PREVIOUS) {
 			$previous = null;
 			foreach ($this->years() as $candidate) {
@@ -235,7 +300,15 @@ class AmeRateRepository
 					break;
 				}
 			}
+			// Ceilings change by law: take them from the catalog when it has the year.
+			$catalogThresholds = AmeTaxCatalog::thresholds($profile, $year);
+			foreach ($catalogThresholds as $line) {
+				$lines[] = array('level' => AmeContributionCalculator::LEVEL_THRESHOLD, 'type' => $line['type'], 'name' => self::thresholdName($line, $langs), 'comment' => '', 'rate' => (float) $line['amount']);
+			}
 			foreach ($this->matrix() as $row) {
+				if ($catalogThresholds && $row['level'] === AmeContributionCalculator::LEVEL_THRESHOLD) {
+					continue;
+				}
 				$rate = ($previous !== null) ? ($row['cells'][$previous]['rate'] ?? null) : null;
 				if ($rate !== null) {
 					$lines[] = array('level' => $row['level'], 'type' => $row['type'], 'name' => $row['name'], 'comment' => $row['comment'], 'rate' => $rate);
@@ -296,6 +369,20 @@ class AmeRateRepository
 				$drop[] = ($cell['rate'] === null) ? $cell['id'] : $target['id'];
 			}
 		}
+		// A ceiling caps the total or the services: no other base.
+		if ($level === AmeContributionCalculator::LEVEL_THRESHOLD && !in_array($type, array(AmeContributionCalculator::BASE_SALES, AmeContributionCalculator::BASE_SERVICES), true)) {
+			throw new InvalidArgumentException('AME_ErrorThresholdBase');
+		}
+		// Euros are not percentages: a row with values cannot move between ceilings and rates.
+		if ($key !== null && isset($rows[$key])) {
+			$wasThreshold = ($rows[$key]['level'] === AmeContributionCalculator::LEVEL_THRESHOLD);
+			$hasValues = array_filter(array_column($rows[$key]['cells'], 'rate'), function ($rate) {
+				return $rate !== null;
+			});
+			if ($wasThreshold !== ($level === AmeContributionCalculator::LEVEL_THRESHOLD) && $hasValues) {
+				throw new InvalidArgumentException('AME_ErrorThresholdMove');
+			}
+		}
 
 		$this->db->begin();
 		if ($drop) {
@@ -342,16 +429,17 @@ class AmeRateRepository
 	 * Parse a rate typed by the user (comma or dot, "%" allowed).
 	 *
 	 * @param string $value Typed value
+	 * @param float  $max   Highest value allowed
 	 * @return float|null Rate, null when empty or invalid
 	 */
-	public static function parseRate(string $value): ?float
+	public static function parseRate(string $value, float $max = 100): ?float
 	{
 		$value = trim(str_replace(array(',', '%', ' '), array('.', '', ''), $value));
 		if ($value === '' || !is_numeric($value)) {
 			return null;
 		}
 		$rate = round((float) $value, 4);
-		return ($rate < 0 || $rate > 100) ? null : $rate;
+		return ($rate < 0 || $rate > $max) ? null : $rate;
 	}
 
 	/**

@@ -41,8 +41,14 @@ class AmeTurnoverCalculator
 	/** Goods sold (Dolibarr product type 0). */
 	const SALE = 'sale';
 
-	/** Services (Dolibarr product type 1). */
+	/** Services (Dolibarr product type 1), when the activity is not known. */
 	const SERVICE = 'service';
+
+	/** Commercial or craft services (BIC). */
+	const SERVICE_BIC = 'service_bic';
+
+	/** Liberal professions services (BNC). */
+	const SERVICE_BNC = 'service_bnc';
 
 	/** Dolibarr type of a deposit invoice. */
 	const INVOICE_DEPOSIT = 3;
@@ -402,7 +408,13 @@ class AmeTurnoverCalculator
 
 		$above = $to - max($from, $start);
 		if ($above >= 0.005) {
-			$activity = isset($groups[self::SERVICE]) ? self::SERVICE : (string) key(array_slice($groups, -1, 1, true));
+			$activity = (string) key(array_slice($groups, -1, 1, true));
+			foreach (array(self::SERVICE, self::SERVICE_BIC, self::SERVICE_BNC) as $service) {
+				if (isset($groups[$service])) {
+					$activity = $service;
+					break;
+				}
+			}
 			$shares[$activity] = ($shares[$activity] ?? 0) + $above;
 		}
 

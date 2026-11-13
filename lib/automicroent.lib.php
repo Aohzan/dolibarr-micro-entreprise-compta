@@ -26,6 +26,7 @@ require_once __DIR__.'/../class/declarationperiods.class.php';
 require_once __DIR__.'/../class/taxcatalog.class.php';
 require_once __DIR__.'/../class/raterepository.class.php';
 require_once __DIR__.'/../class/paymentrepository.class.php';
+require_once __DIR__.'/../class/thresholdcheck.class.php';
 
 /**
  * Stop with "access forbidden" unless the user has a right of the module.
@@ -102,10 +103,125 @@ function amePayments(): AmePaymentRepository
  */
 function ameTurnoverCalculator(): AmeTurnoverCalculator
 {
+	$default = ameDefaultServiceActivity();
+	$bic = ameCategoryProducts(getDolGlobalInt('AUTOMICROENT_CATEGORY_BIC'));
+	$bnc = ameCategoryProducts(getDolGlobalInt('AUTOMICROENT_CATEGORY_BNC'));
+	$resolver = function (array $line) use ($default, $bic, $bnc): ?string {
+		switch ((int) $line['product_type']) {
+			case 0:
+				return AmeTurnoverCalculator::SALE;
+			case 1:
+				if (isset($bnc[(int) $line['fk_product']])) {
+					return AmeTurnoverCalculator::SERVICE_BNC;
+				}
+				if (isset($bic[(int) $line['fk_product']])) {
+					return AmeTurnoverCalculator::SERVICE_BIC;
+				}
+				return $default;
+			default:
+				return null;
+		}
+	};
 	// Dolibarr types every deposit line as goods: use the activity of the profile.
 	$profile = ameProfile();
-	$deposit = ($profile === '') ? null : (($profile === AmeTaxCatalog::PROFILE_SALES) ? AmeTurnoverCalculator::SALE : AmeTurnoverCalculator::SERVICE);
-	return new AmeTurnoverCalculator(null, $deposit);
+	$deposit = ($profile === '') ? null : (($profile === AmeTaxCatalog::PROFILE_SALES) ? AmeTurnoverCalculator::SALE : $default);
+	return new AmeTurnoverCalculator($resolver, $deposit);
+}
+
+/**
+ * Activity of the services that are in no mapped category: BNC for the
+ * liberal professions, BIC for traders and craftsmen, unknown without profile.
+ *
+ * @return string
+ */
+function ameDefaultServiceActivity(): string
+{
+	switch (ameProfile()) {
+		case AmeTaxCatalog::PROFILE_BNC:
+		case AmeTaxCatalog::PROFILE_CIPAV:
+			return AmeTurnoverCalculator::SERVICE_BNC;
+		case AmeTaxCatalog::PROFILE_BIC_SERVICES:
+		case AmeTaxCatalog::PROFILE_CRAFT:
+		case AmeTaxCatalog::PROFILE_SALES:
+			return AmeTurnoverCalculator::SERVICE_BIC;
+		default:
+			return AmeTurnoverCalculator::SERVICE;
+	}
+}
+
+/**
+ * Products and services of a category and its sub-categories.
+ *
+ * @param int $categoryId Category id, 0 for none
+ * @return array<int, true> Product id => true
+ */
+function ameCategoryProducts(int $categoryId): array
+{
+	global $db;
+	if ($categoryId <= 0) {
+		return array();
+	}
+	// One query for the tree; the visited set protects against parent loops.
+	$children = array();
+	$resql = $db->query('SELECT rowid, fk_parent FROM '.MAIN_DB_PREFIX.'categorie WHERE type = 0');
+	while ($resql && ($obj = $db->fetch_object($resql))) {
+		$children[(int) $obj->fk_parent][] = (int) $obj->rowid;
+	}
+	$ids = array();
+	$queue = array($categoryId);
+	while ($queue) {
+		$id = array_shift($queue);
+		if (isset($ids[$id])) {
+			continue;
+		}
+		$ids[$id] = true;
+		foreach ($children[$id] ?? array() as $child) {
+			$queue[] = $child;
+		}
+	}
+	$products = array();
+	$sql = 'SELECT fk_product FROM '.MAIN_DB_PREFIX.'categorie_product WHERE fk_categorie IN ('.implode(',', array_keys($ids)).')';
+	$resql = $db->query($sql);
+	while ($resql && ($obj = $db->fetch_object($resql))) {
+		$products[(int) $obj->fk_product] = true;
+	}
+	return $products;
+}
+
+/**
+ * Main activity of the setup: sales for a trader selling goods, else its services.
+ *
+ * @return string
+ */
+function ameDefaultActivity(): string
+{
+	return (ameProfile() === AmeTaxCatalog::PROFILE_SALES) ? AmeTurnoverCalculator::SALE : ameDefaultServiceActivity();
+}
+
+/**
+ * Alert percentage of the ceilings.
+ *
+ * @return int
+ */
+function ameThresholdAlert(): int
+{
+	return max(1, min(100, getDolGlobalInt('AUTOMICROENT_THRESHOLD_ALERT', 80)));
+}
+
+/**
+ * Gauge of a ceiling: amount, percentage and colour.
+ *
+ * @param array{amount: float, limit: float, ratio: float, state: string} $check Check
+ * @return string HTML
+ */
+function ameThresholdGauge(array $check): string
+{
+	$colors = array(AmeThresholdCheck::STATE_OK => 'ok', AmeThresholdCheck::STATE_WARNING => 'warning', AmeThresholdCheck::STATE_OVER => 'error');
+	$percent = (int) floor($check['ratio'] * 100);
+	$out = '<span class="ame-gauge ame-gauge-'.$check['state'].'" title="'.dol_escape_htmltag(ameMoney($check['amount'], false).' / '.ameMoney($check['limit'], false)).'">';
+	$out .= '<progress max="100" value="'.min(100, $percent).'"></progress> ';
+	$out .= '<span class="'.$colors[$check['state']].'">'.$percent.' %</span></span>';
+	return $out;
 }
 
 /**
@@ -193,10 +309,6 @@ function ameBaseLabel(int $type): string
 function ameActivityLabel(string $activity): string
 {
 	global $langs;
-	if ($activity === AmeTurnoverCalculator::SERVICE) {
-		$bnc = in_array(ameProfile(), array(AmeTaxCatalog::PROFILE_BNC, AmeTaxCatalog::PROFILE_CIPAV), true);
-		return $langs->trans($bnc ? 'AME_ActivityServiceBnc' : 'AME_ActivityServiceBic');
-	}
 	return $langs->trans('AME_Activity_'.$activity);
 }
 
@@ -311,8 +423,7 @@ function ameSum(array $amounts, int $base): float
 {
 	$sum = 0.0;
 	foreach ($amounts as $activity => $amount) {
-		$isSale = ($activity === AmeTurnoverCalculator::SALE);
-		if ($base === AmeContributionCalculator::BASE_ALL || ($base === AmeContributionCalculator::BASE_SALES) === $isSale) {
+		if (AmeContributionCalculator::inBase((string) $activity, $base)) {
 			$sum += $amount;
 		}
 	}
