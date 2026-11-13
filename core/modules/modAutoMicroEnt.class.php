@@ -54,7 +54,7 @@ class modAutoMicroEnt extends DolibarrModules
 		$this->editor_url = 'https://github.com/Aohzan/dolibarr-micro-entreprise-compta';
 		$this->url_last_version = 'https://github.com/Aohzan/dolibarr-micro-entreprise-compta/releases/latest';
 		// Set by scripts/release.sh.
-		$this->version = '7.1.0';
+		$this->version = '8.0.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'fa-file-invoice';
 
