@@ -229,9 +229,10 @@ class AmeTurnoverCalculator
 	/**
 	 * Totals of an invoice per activity, goods first: they are settled first.
 	 *
-	 * A deposit is a partial payment of the sale it comes from: it settles
-	 * the goods of its proposal or order first, then the services. Without
-	 * that document, it holds the activity given to the constructor.
+	 * A deposit is a partial payment of the sale it belongs to: it settles
+	 * the goods of that sale (final invoice, order or proposal) first, then
+	 * the services. Without that document, it holds the activity given to
+	 * the constructor.
 	 * Discount lines (a deposit or a credit note deducted from the invoice)
 	 * carry no activity of their own: they lower the goods first, which the
 	 * deposit paid first, then the other activities.

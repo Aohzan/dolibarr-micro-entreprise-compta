@@ -130,8 +130,10 @@ class AmePaymentRepository
 	}
 
 	/**
-	 * Add to each deposit invoice the lines of the proposal or order it comes
-	 * from: a deposit settles the goods of that sale first.
+	 * Add to each deposit invoice the lines of the sale it belongs to: a
+	 * deposit settles the goods of that sale first. The sale is the final
+	 * invoice that deducts the deposit, else the order, else the proposal
+	 * the deposit was created from.
 	 *
 	 * @param array<int, array<string, mixed>> $invoices Invoices keyed by id, changed in place
 	 * @return void
@@ -147,25 +149,40 @@ class AmePaymentRepository
 		if (!$deposits) {
 			return;
 		}
+		$in = implode(',', $deposits);
 
-		// The order wins over the proposal: it is the final state of the sale.
+		// Rank: 3 final invoice, 2 order, 1 proposal.
 		$sources = array();
-		$sql = 'SELECT fk_target, fk_source, sourcetype FROM '.MAIN_DB_PREFIX.'element_element';
-		$sql .= " WHERE targettype = 'facture' AND sourcetype IN ('propal', 'commande')";
-		$sql .= ' AND fk_target IN ('.implode(',', $deposits).')';
+		$sql = 'SELECT re.fk_facture_source AS deposit, COALESCE(fd.fk_facture, re.fk_facture) AS final';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'societe_remise_except AS re';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'facturedet AS fd ON fd.rowid = re.fk_facture_line';
+		$sql .= ' WHERE re.fk_facture_source IN ('.$in.')';
 		$resql = $this->query($sql);
 		while ($obj = $this->db->fetch_object($resql)) {
+			if ((int) $obj->final > 0) {
+				$sources[(int) $obj->deposit] = array(3, 'facture', (int) $obj->final);
+			}
+		}
+		$sql = 'SELECT fk_target, fk_source, sourcetype FROM '.MAIN_DB_PREFIX.'element_element';
+		$sql .= " WHERE targettype = 'facture' AND sourcetype IN ('propal', 'commande') AND fk_target IN (".$in.')';
+		$resql = $this->query($sql);
+		while ($obj = $this->db->fetch_object($resql)) {
+			$rank = ($obj->sourcetype === 'commande') ? 2 : 1;
 			$target = (int) $obj->fk_target;
-			if (!isset($sources[$target]) || $obj->sourcetype === 'commande') {
-				$sources[$target] = array($obj->sourcetype, (int) $obj->fk_source);
+			if (!isset($sources[$target]) || $sources[$target][0] < $rank) {
+				$sources[$target] = array($rank, $obj->sourcetype, (int) $obj->fk_source);
 			}
 		}
 
-		$tables = array('propal' => array('propaldet', 'fk_propal'), 'commande' => array('commandedet', 'fk_commande'));
+		$tables = array(
+			'facture' => array('facturedet', 'fk_facture', ' AND (fk_remise_except IS NULL OR fk_remise_except = 0) AND (info_bits & 2) = 0'),
+			'commande' => array('commandedet', 'fk_commande', ''),
+			'propal' => array('propaldet', 'fk_propal', ''),
+		);
 		foreach ($sources as $target => $source) {
-			list($table, $column) = $tables[$source[0]];
+			list($table, $column, $filter) = $tables[$source[1]];
 			$sql = 'SELECT product_type, fk_product, total_ht, total_ttc FROM '.MAIN_DB_PREFIX.$table;
-			$sql .= ' WHERE '.$column.' = '.$source[1];
+			$sql .= ' WHERE '.$column.' = '.$source[2].$filter;
 			$resql = $this->query($sql);
 			$lines = array();
 			while ($obj = $this->db->fetch_object($resql)) {
