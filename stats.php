@@ -99,7 +99,8 @@ if ($error !== '') {
 	exit;
 }
 
-$width = DolGraph::getDefaultGraphSizeForStats('width');
+// Relative width: each chart fills its half of the page, whatever the screen.
+$width = '95%';
 $height = DolGraph::getDefaultGraphSizeForStats('height');
 $monthLabels = array();
 for ($m = 1; $m <= 12; $m++) {
@@ -195,7 +196,7 @@ $db->close();
  * @param list<array<int, string|float|null>> $data   Rows: label, then one value per series
  * @param list<string>                        $legend Series names
  * @param list<string>                        $types  Series types (bars, lines)
- * @param int                                 $width  Width
+ * @param string|int                          $width  Width, in pixels or as a percentage
  * @param int                                 $height Height
  * @return string HTML
  */
@@ -213,7 +214,8 @@ function ameGraph(string $id, string $title, array $data, array $legend, array $
 	$graph->SetWidth($width);
 	$graph->SetHeight($height);
 	$graph->SetMinValue(0);
-	$graph->setShowLegend(2);
+	// Legend on top: on the right it is cut on narrow screens.
+	$graph->setShowLegend(1);
 	$graph->draw($id.'.png');
 	return $graph->show();
 }
